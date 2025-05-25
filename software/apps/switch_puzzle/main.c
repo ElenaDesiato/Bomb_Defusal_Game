@@ -58,12 +58,13 @@ void update_switch_status() {
             sum += SWITCH_PIN_MAPPED_VALUE[i];
         }
     }
+    printf("\n"); 
 }
 
 void update_neopixel_ring() {   
     for(int i = 0; i < 16; i++) {
         if ((sum >> i) & 1) {
-            neopixel_set_color(i, COLOR_GREEN);
+            neopixel_set_color(i, COLOR_RED);
         } else {
             neopixel_clear(i);
         }
@@ -80,28 +81,26 @@ int main(void) {
     nrf_gpio_cfg_input(PIN_PUZZLE_SELECT, NRF_GPIO_PIN_PULLUP);
     neopixel_ring_init(9);  
 
-
     for (int i = 0; i < NUM_SWITCHES; i++) {
         nrf_gpio_cfg_input(SWITCH_PIN[i], NRF_GPIO_PIN_NOPULL);
     }
     randomize_switch_mapping();
     
-    
 
-  while(1) {
-    // Reset if puzzle select is pressed
-    if (!nrf_gpio_pin_read(PIN_PUZZLE_SELECT)) {
-      printf("RESET button pressed. Puzzle reset.\n");
-      
-    }
+    while(1) {
+        // Reset if puzzle select is pressed
+        if (!nrf_gpio_pin_read(PIN_PUZZLE_SELECT)) {
+            printf("RESET button pressed. Puzzle reset.\n");
+        }
     
-    update_switch_status();
-    update_neopixel_ring();
-    if (switch_puzzle_clea()){
-        neopixel_set_color_all(COLOR_ORANGE);
-        printf("CLEARED.\n");
-        break;
-    }
+        update_switch_status();
+        update_neopixel_ring();
+        if (switch_puzzle_clear()){
+            neopixel_set_color_all(COLOR_GREEN);
+            printf("CLEARED.\n");
+            break;
+        }
+        nrf_delay_ms(400);
     }
 
     while(1){
