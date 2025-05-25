@@ -13,7 +13,7 @@
 #include "microbit_v2.h"
 #include "neopixel_ring.h"
 
-#define NEOPIXEL_PIN (EDGE_P7)
+#define NEOPIXEL_PIN (EDGE_P9)
 
 #define ONE_HIGH 13
 #define ZERO_HIGH 6
