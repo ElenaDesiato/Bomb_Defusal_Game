@@ -1,0 +1,39 @@
+// DFR0769.h
+
+#pragma once
+#ifndef DFR0760_H
+#define DFR0760_H
+
+#include "nrf_twi_mngr.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+//  Configuration 
+#define DFR0760_ADDR                  0x40  // Default I2C Address
+
+//  Commands 
+#define CMD_HEADER                    0xFD  // Packet Frame Header
+#define START_SYNTHESIS               0x01  // Speech synthesis command (e.g., English with encoding 0x00)
+#define STOP_SYNTHESIS                0x02  // Stop current synthesis
+#define PAUSE_SYNTHESIS               0x03  // Pause current synthesis
+#define RECOVER_SYNTHESIS             0x04  // Resume paused synthesis
+#define ENTERSAVEELETRI               0x88  // Enter sleep/power-save mode
+#define WAKEUP                        0xFF  // Wake up from sleep mode
+#define INQUIRYSTATUS                 0x21  // Command to check chip status
+
+//  ACK/Status Values 
+#define ACK_SYNTHESIS_ACTIVE_OR_START 0x41  // 'A' - Module is synthesizing or has acknowledged synthesis command
+#define ACK_DEVICE_READY              0x4F  // 'O' - Module is ready/idle (OK)
+#define ACK_ERROR_CHIP                0x45  // 'E' - Error state
+#define ACK_ERROR_BUSY_SYNTHESIS      0x42  // 'B' - Chip busy with another synthesis task
+
+bool DFR0760_init(const nrf_twi_mngr_t* twi_manager);
+void DFR0760_set_volume(int volume);
+void DFR0760_say(const char* text);
+void DFR0760_stop(void);
+void DFR0760_sleep(void);
+void DFR0760_wakeup(void);
+bool DFR0760_is_connected(const nrf_twi_mngr_t* twi_manager);
+void DFR0760_wait_for_speech_to_finish(void);
+
+#endif
