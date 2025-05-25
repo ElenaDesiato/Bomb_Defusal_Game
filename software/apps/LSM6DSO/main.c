@@ -7,10 +7,6 @@
 
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
 
-static void tilt_callback(lsm6dso_measurement_t m, void* _unused) {
-  printf("Tilt angle: X: %.2f, Y: %.2f, Z: %.2f\n", m.x_axis, m.y_axis, m.z_axis); 
-}
-
 int main(void) {
   printf("Board started!\n");
 
@@ -27,8 +23,10 @@ int main(void) {
 
   // Loop forever
   while (1) {
-    lsm6dso_get_tilt_nonblocking(tilt_callback, NULL); 
-    printf("This might print before the tilt as its nonblocking\n"); 
+    if (lsm6dso_is_ready()) {
+      float curr = lsm6dso_get_tilt(); 
+      printf("Tilt angle: %.2f \n", curr); 
+    }
     nrf_delay_ms(1000);
   }
 }
