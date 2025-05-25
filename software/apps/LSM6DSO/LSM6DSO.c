@@ -1,32 +1,41 @@
 /* Driver for the accelerometer/gyroscope features of the LSM6DSO
     * use i2c to communicate with it 
+    * use timer to make it non-blocking: periodically use timer callbacks to set global variable to most recent measurement 
+      & have a non-blocking function return newest measurement when needed
     * Reference 1: Lab6 I2c sensors
     * Reference 2: Arduino library https://github.com/sparkfun/SparkFun_Qwiic_6DoF_LSM6DSO_Arduino_Library
-    * Reference 3: temp_driver (for structure of nonblocking driver)
 */
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 
 #include "LSM6DSO.h"
 #include "nrf_delay.h"
+#include "app_timer.h"
+
 
 #define CONCAT(msbits, lsbits) ((int16_t)((msbits << 8) | lsbits))
+
+#define ACC_MEASUREMENT_INTERVAL 1000    // interval between measurements in ms
+
+APP_TIMER_DEF(measurement_timer); 
 
 // Pointer to an initialized I2C instance to use for transactions
 static const nrf_twi_mngr_t* i2c_manager = NULL;
 
-// Global variables for callback function
-static void (*callback_fn)(float, void*) = NULL;
-static void* callback_context = NULL;
+//Global variables for measurements
+static lsm6dso_measurement_t curr_measurement = {0}; 
+static float curr_tilt = 0.0; 
+static bool isReady = false; 
+
 
 // 4 helper functions copied from lab 6
-/* 
+/*
 Helper function: read length bytes from I2c device
    i2c_addr - address of device to read from 
-   buf - pointer to where data should be reda to
+   buf - pointer to where data should be read to
    length - length of data to be read (in Bytes)
-*/
 static void i2c_read_bytes(uint8_t i2c_addr, uint8_t* buf, uint8_t length) {
   nrf_twi_mngr_transfer_t const read_transfer[] = {
     NRF_TWI_MNGR_READ(i2c_addr, buf, length, 0)
@@ -36,12 +45,11 @@ static void i2c_read_bytes(uint8_t i2c_addr, uint8_t* buf, uint8_t length) {
     printf("I2C transaction failed! Error: %lX\n", result);
   }
 }
-
-/* Helper function: send length number of data bytes to the given i2c address
+  
+Helper function: send length number of data bytes to the given i2c address
     i2c_addr - address of device to write to 
     data - pointer to data to be written
     length - length of data to be written
-*/
 static void i2c_write_bytes(uint8_t i2c_addr, uint8_t* data, uint8_t length) {
     nrf_twi_mngr_transfer_t const write_transfer[] = {
         NRF_TWI_MNGR_WRITE(i2c_addr, data, length, 0),
@@ -51,6 +59,7 @@ static void i2c_write_bytes(uint8_t i2c_addr, uint8_t* data, uint8_t length) {
         printf("I2C transaction failed! Error: %lX\n", result);
     }
 }
+*/
 
 /* Helper function: perform a 1-byte I2C read of a given register
     i2c_addr - address of the device to read from 
@@ -86,65 +95,46 @@ static void i2c_write_reg(uint8_t i2c_addr, uint8_t reg_addr, uint8_t data) {
 }
 
 // Helper function to convert accelerometer reading to angle, almost from lab6
-static void acceleration_to_angle(lsm6dso_measurement_t* m){
+static float acceleration_to_angle(lsm6dso_measurement_t* m){
   // multiply by sensitivity, add bias, convert mg -> g
-  float x_val = (m->x_axis * 0.061 + 20)/1000;  
-  float y_val = (m->y_axis * 0.061 + 20)/1000;  
-  float z_val = (m->z_axis * 0.061 + 20)/1000;  
-  // use formulas to compute angles
-  float x_denom= sqrt(pow(y_val,2) + pow(z_val,2));
-  float y_denom = sqrt(pow(x_val,2) + pow(z_val,2));
-  m->x_axis = (x_denom != 0) ? atan(x_val/x_denom) * 180/M_PI : 0;
-  m->y_axis = (y_denom != 0) ? atan(y_val/y_denom) * 180/M_PI : 0;
-  m->z_axis = (z_val != 0) ? atan(sqrt(pow(x_val,2) + pow(y_val,2))/z_val) * 180/M_PI : 0;
+  float x_val = (m->x_axis * 0.061 + 20)/1000.0;  
+  float y_val = (m->y_axis * 0.061 + 20)/1000.0;  
+  float z_val = (m->z_axis * 0.061 + 20)/1000.0;  
+  // use formula to compute tilt angle
+  return atan(sqrt(x_val*x_val + y_val*y_val) / z_val) * 180.0/M_PI;
 }
 
 // Helper function to read raw accelerometer data, inspired by lab6
 static lsm6dso_measurement_t get_raw_accel_data(void) {
-  uint8_t x_lsbits = i2c_reg_read(LSM6DSO_DEF_ADDR, OUTX_L_A); 
-  uint8_t x_msbits = i2c_reg_read(LSM6DSO_DEF_ADDR, OUTX_H_A); 
-  int16_t x_val = (float)CONCAT(x_msbits, x_lsbits);
-  uint8_t y_lsbits = i2c_reg_read(LSM6DSO_DEF_ADDR, OUTY_L_A); 
-  uint8_t y_msbits = i2c_reg_read(LSM6DSO_DEF_ADDR, OUTY_H_A); 
-  int16_t y_val = (float)CONCAT(y_msbits, y_lsbits);
-  uint8_t z_lsbits = i2c_reg_read(LSM6DSO_DEF_ADDR, OUTZ_L_A); 
-  uint8_t z_msbits = i2c_reg_read(LSM6DSO_DEF_ADDR, OUTZ_H_A); 
-  int16_t z_val = (float)CONCAT(z_msbits, z_lsbits);
-
-  lsm303agr_measurement_t measurement = {0};
-  measurement.x_axis = (float)x_val;
-  measurement.y_axis = (float)y_val;
-  measurement.z_axis = (float)z_val;
+  isReady = false; 
+  lsm6dso_measurement_t measurement = {0};
+  uint8_t x_lsbits = i2c_read_reg(LSM6DSO_DEF_ADDR, OUTX_L_A); 
+  uint8_t x_msbits = i2c_read_reg(LSM6DSO_DEF_ADDR, OUTX_H_A); 
+  measurement.x_axis = (float)CONCAT(x_msbits, x_lsbits);
+  uint8_t y_lsbits = i2c_read_reg(LSM6DSO_DEF_ADDR, OUTY_L_A); 
+  uint8_t y_msbits = i2c_read_reg(LSM6DSO_DEF_ADDR, OUTY_H_A); 
+  measurement.y_axis = (float)CONCAT(y_msbits, y_lsbits);
+  uint8_t z_lsbits = i2c_read_reg(LSM6DSO_DEF_ADDR, OUTZ_L_A); 
+  uint8_t z_msbits = i2c_read_reg(LSM6DSO_DEF_ADDR, OUTZ_H_A); 
+  measurement.z_axis = (float)CONCAT(z_msbits, z_lsbits);
   return measurement;
 }
 
-// Interrupt handler for Accelerometer
-void accelerometer_handler(void) {
-  NRF_TEMP->EVENTS_DATARDY = 0;
-
-  // Be sure to only call function if non-null
-  if (callback_fn) {
-    lsm6dso_measurement_t m = get_raw_accel_data(); 
-    acceleration_to_angle(&m); 
-    callback_fn(m, callback_context);
-  }
+// Function that sets measurement periodically
+static void set_measurement(void) {
+  curr_measurement = get_raw_accel_data(); 
+  curr_tilt = acceleration_to_angle(&curr_measurement); 
+  isReady = true; 
 }
 
-void lsm6dso_get_tilt_nonblocking(void (*callback)(float, void*), void* context) {
-  // Save callback
-  callback_fn = callback;
-  callback_context = context;
+// Return true iff measurement is ready - nonblocking
+bool lsm6dso_is_ready(void) {
+  return isReady; 
+}
 
-  // TO DO: enable interrupts somehow
-  // Enable lowest-priority interrupts
-  NRF_TEMP->INTENSET = 1;
-  NVIC_EnableIRQ(TEMP_IRQn);
-  NVIC_SetPriority(TEMP_IRQn, 7);
-
-  // Start temperature sensor
-  NRF_TEMP->TASKS_START = 1;
-
-  return;
+// Return tilt angle in degrees - nonblocking
+float lsm6dso_get_tilt(void) {
+  return curr_tilt; 
 }
 
 /* Initialize sensor
@@ -177,5 +167,13 @@ void lsm6dso_init(const nrf_twi_mngr_t* i2c) {
 
     // enables accelerometer interrupt on INT1 pin on sensor
     i2c_write_reg(LSM6DSO_DEF_ADDR, INT1_CTRL , 0x01);
+
+    isReady = false; 
+    curr_tilt = 0.0;
+
+    app_timer_init();
+    app_timer_create(&measurement_timer, APP_TIMER_MODE_REPEATED, set_measurement);
+    // APP_TIMER_TICKS converts ms to timer ticks
+    app_timer_start(measurement_timer, APP_TIMER_TICKS(ACC_MEASUREMENT_INTERVAL), NULL); 
 }
 

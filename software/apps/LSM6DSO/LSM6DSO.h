@@ -108,9 +108,12 @@ typedef enum {
 
 void lsm6dso_init(const nrf_twi_mngr_t* i2c);
 
-// Returns tilt angles (in X,Y,Z) in degrees 
-// nonblocking version: calls callback when ready
-void lsm6dso_get_tilt_nonblocking(void); 
+// Returns true iff measurement is ready - nonblocking
+bool lsm6dso_is_ready(void); 
+
+// Returns tilt angle in degrees - non-blocking
+// Should NOT be called unless lsm6dso_is_ready returns true
+float lsm6dso_get_tilt(void); 
 
 
 #endif
