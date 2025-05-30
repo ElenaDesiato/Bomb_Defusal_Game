@@ -12,6 +12,7 @@
 
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
 
+// This is basically just test code for the gpio expander driver
 int main(void) {
   printf("Board started!\n");
 
@@ -24,15 +25,21 @@ int main(void) {
   i2c_config.interrupt_priority = 0;
   nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
 
-  //scan_i2c_bus(&twi_mngr_instance);
+  uint16_t i2c_addr1 = SX1509_ADDR_00; 
+  uint16_t i2c_addr2 = SX1509_ADDR_01; 
+  uint8_t pin1 = 0; 
+  uint8_t pin2 = 0; 
+  sx1509_init(i2c_addr1,&twi_mngr_instance);
+  sx1509_init(i2c_addr2,&twi_mngr_instance);
+  printf("%x is %s\n", i2c_addr1, sx1509_is_connected(i2c_addr1,&twi_mngr_instance) ? "connected" : "not connected");
+  printf("%x is %s\n", i2c_addr2, sx1509_is_connected(i2c_addr2, &twi_mngr_instance) ? "connected" : "not connected");
 
-  sx1509_init(&twi_mngr_instance);
-  printf("SX1509 is %s\n", sx1509_is_connected(&twi_mngr_instance) ? "connected" : "not connected");
+  sx1509_pin_config_input_pullup(i2c_addr1, pin1);
+  sx1509_pin_config_input_pullup(i2c_addr2, pin2);
 
-  sx1509_pin_config_input_pullup(0); 
-  
   while (1) {
-    printf("Pin 0 is %s\n", sx1509_pin_read(0) ? "pressed" : "not pressed");
-    nrf_delay_ms(100);
+    printf("%x: Pin %d is %s\n", i2c_addr1, pin1, sx1509_pin_read(i2c_addr1, pin1) ? "high" : "low");
+    printf("%x: Pin %d is %s\n", i2c_addr2, pin2, sx1509_pin_read(i2c_addr2, pin2) ? "high" : "low");
+    nrf_delay_ms(1000);
   }
 }

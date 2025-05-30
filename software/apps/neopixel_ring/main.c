@@ -11,11 +11,11 @@
 
 int main(void) {
   printf("Board started!\n");
-  neopixel_ring_init(7);  
+  neopixel_ring_init(EDGE_P9);  
 
   while (1) {
     for(int i = 0; i < 16; i++) {
-      neopixel_set_color(i,COLOR_GREEN);
+      neopixel_set_color(i,COLOR_RED);
       nrf_delay_ms(100);
     }
     for(int i = 0; i < 16; i++) {

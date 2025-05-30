@@ -25,7 +25,7 @@ typedef enum {
 } color_name_t;
 
 void neopixel_set_rgb(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
-void neopixel_ring_init(uint8_t led);
+void neopixel_ring_init(uint16_t neopixel_pin);
 void neopixel_show(void);
 void neopixel_clear(uint8_t led);
 void neopixel_clear_all(void);

@@ -13,8 +13,6 @@
 #include "microbit_v2.h"
 #include "neopixel_ring.h"
 
-#define NEOPIXEL_PIN (EDGE_P9)
-
 #define ONE_HIGH 13
 #define ZERO_HIGH 6
 #define RESET_DELAY_US 100
@@ -23,20 +21,19 @@ static struct {
   uint8_t r, g, b;
 } rgb[16]; // 16 LEDs
 
+uint16_t neopixel_pin = 0; 
+
 //RGB
 // By not having full 255 values (instead ~1/4 of that) the LEDs should not be bright enough to hurt our eyes
 static const color_t COLOR_TABLE[COLOR_COUNT] = {
   [COLOR_BLACK]   = {0, 0, 0},
-  [COLOR_WHITE]   = {64, 64, 64},
-  [COLOR_RED]     = {64, 0, 0},
-  [COLOR_GREEN]   = {0, 64, 0},
-  [COLOR_BLUE]    = {0, 0, 64},
-  [COLOR_YELLOW]  = {64, 64, 0},
-  [COLOR_CYAN]    = {0, 64, 64},
-  [COLOR_MAGENTA] = {64, 0, 64},
-  [COLOR_ORANGE]  = {64, 32, 0},
-  [COLOR_PURPLE]  = {32, 0, 64},
-  [COLOR_PINK]    = {64, 26, 45},
+  [COLOR_WHITE]   = {16, 16, 16},
+  [COLOR_RED]     = {16, 0, 0},
+  [COLOR_GREEN]   = {0, 16, 0},
+  [COLOR_BLUE]    = {0, 0, 16},
+  [COLOR_YELLOW]  = {16, 16, 0},
+  [COLOR_CYAN]    = {0, 16, 16},
+  [COLOR_MAGENTA] = {16, 0, 16},
 };
 
 // PWM configuration
@@ -67,13 +64,14 @@ static void print_sequence_data() {
   printf("\n");
 }
 
-void neopixel_ring_init(uint8_t pin) {
-  nrf_gpio_cfg_output(NEOPIXEL_PIN);
+void neopixel_ring_init(uint16_t neopixel_pin_param) {
+  neopixel_pin = neopixel_pin_param;
+  nrf_gpio_cfg_output(neopixel_pin);
 
   // Initialize the PWM
   nrfx_pwm_config_t config = {
     .output_pins = {
-        NEOPIXEL_PIN,                
+        neopixel_pin,                
         NRFX_PWM_PIN_NOT_USED,    
         NRFX_PWM_PIN_NOT_USED,    
         NRFX_PWM_PIN_NOT_USED     
