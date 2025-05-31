@@ -5,7 +5,7 @@
 #define NUM_ROWS 4
 #define NUM_COLS 3
 
-bool keypad_init(void);
+bool keypad_init(uint8_t i2c_addr, uint8_t* row_pins, uint8_t* col_pins);
 
 void keypad_clear_input_record(void);
 void keypad_stop_scanning(void);

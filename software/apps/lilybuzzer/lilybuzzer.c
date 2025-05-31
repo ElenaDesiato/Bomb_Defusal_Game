@@ -14,8 +14,6 @@
 #include "microbit_v2.h"
 #include "lilybuzzer.h"
 
-#define LILYBUZZER_PIN (EDGE_P13)
-
 // Based on international timing of morse code: https://morsecode.world/international/timing.html
 #define TIME_UNIT_MS 120                              // one time unit in ms   
 #define DOT_LENGTH (1*TIME_UNIT_MS)
@@ -86,10 +84,10 @@ static const morse_map_t morse_table[] = {
 static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(0);
 
 // Holds duty cycle values to trigger PWM toggle
-nrf_pwm_values_common_t sequence_data[1] = {0};
+static nrf_pwm_values_common_t sequence_data[1] = {0};
 
 // Sequence structure for configuring DMA
-nrf_pwm_sequence_t pwm_sequence = {
+static nrf_pwm_sequence_t pwm_sequence = {
   .values.p_common = sequence_data,
   .length = 1,
   .repeats = 0,
@@ -97,36 +95,40 @@ nrf_pwm_sequence_t pwm_sequence = {
 };
 
 // global variables to hold current morse state
-char* string_to_play = ""; 
-uint32_t string_length = 0; 
-uint32_t curr_char_index = 0; 
-uint8_t curr_symbol_index = 0; 
+static char* string_to_play = ""; 
+static uint32_t string_length = 0; 
+static uint32_t curr_char_index = 0; 
+static uint8_t curr_symbol_index = 0; 
+
+static uint8_t lilybuzzer_pin = 0;
 
 static void play_curr_symbol();
 
-void lilybuzzer_init(void) {
-  nrfx_pwm_config_t config = {
-    .output_pins = { LILYBUZZER_PIN, NRFX_PWM_PIN_NOT_USED, NRFX_PWM_PIN_NOT_USED, NRFX_PWM_PIN_NOT_USED},
-    .irq_priority = 1,
-    .base_clock = NRF_PWM_CLK_500kHz,
-    .count_mode = NRF_PWM_MODE_UP,
-    .top_value = 0,
-    .load_mode = NRF_PWM_LOAD_COMMON,
-    .step_mode = NRF_PWM_STEP_AUTO,
-  }; 
-  nrfx_pwm_init(&PWM_INST, &config, NULL);
+void lilybuzzer_init(uint8_t buzzer_pin) {
+    lilybuzzer_pin = buzzer_pin;
 
-  NRF_PWM0->COUNTERTOP = 500000/MORSE_NOTE_FREQUENCY;
-  sequence_data[0]= 0.5 * (500000/MORSE_NOTE_FREQUENCY); 
+    nrfx_pwm_config_t config = {
+        .output_pins = { lilybuzzer_pin, NRFX_PWM_PIN_NOT_USED, NRFX_PWM_PIN_NOT_USED, NRFX_PWM_PIN_NOT_USED},
+        .irq_priority = 1,
+        .base_clock = NRF_PWM_CLK_500kHz,
+        .count_mode = NRF_PWM_MODE_UP,
+        .top_value = 0,
+        .load_mode = NRF_PWM_LOAD_COMMON,
+        .step_mode = NRF_PWM_STEP_AUTO,
+    }; 
+    nrfx_pwm_init(&PWM_INST, &config, NULL);
 
-  //app_timer_init(); 
-  app_timer_create(&symbol_timer, APP_TIMER_MODE_SINGLE_SHOT, play_curr_symbol);
+    NRF_PWM0->COUNTERTOP = 500000/MORSE_NOTE_FREQUENCY;
+    sequence_data[0]= 0.5 * (500000/MORSE_NOTE_FREQUENCY); 
 
-  string_to_play = ""; 
-  string_length = 0;
-  curr_char_index = 0; 
-  curr_symbol_index = 0; 
-}
+    //app_timer_init(); 
+    app_timer_create(&symbol_timer, APP_TIMER_MODE_SINGLE_SHOT, play_curr_symbol);
+
+    string_to_play = ""; 
+    string_length = 0;
+    curr_char_index = 0; 
+    curr_symbol_index = 0; 
+    }
 
 // Stop playing all sounds
 void stop_buzzer(void) {

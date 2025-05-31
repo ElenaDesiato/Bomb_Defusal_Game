@@ -12,15 +12,17 @@ APP_TIMER_DEF(keypad_scanning_timer);
 #include "microbit_v2.h"
 #include "../sx1509/sx1509.h"
 
-// keypad
-const uint8_t row_pins[] = {0, 1, 2, 3};  // Pin 0 ~ Pin 3 on SX1509
-const uint8_t col_pins[] = {4, 5, 6};   // Pin 4 ~ Pin 6 on SX1509
-
 #define MAX_RECORD_LENGTH 10
-char key_record[MAX_RECORD_LENGTH]; // Array to record the key sequence
-uint8_t record_index = 0;           // Index to keep track of the current position in the record
+// keypad
+static int8_t* row_pins = NULL; 
+static uint8_t* col_pins = NULL;
+static uint8_t sx1509_i2c_addr = 0; 
 
-const char key_map[4][3] = {
+static char key_record[MAX_RECORD_LENGTH]; // Array to record the key sequence
+static uint8_t record_index = 0;           // Index to keep track of the current position in the record
+static char key_prev = '\0'; 
+
+static const char key_map[4][3] = {
   {'1', '2', '3'},  
   {'4', '5', '6'}, 
   {'7', '8', '9'}, 
@@ -30,15 +32,18 @@ const char key_map[4][3] = {
 static void keypad_read_input(void);
 
 
-bool keypad_init(void) {
+bool keypad_init(uint8_t i2c_addr, uint8_t* rows, uint8_t* cols) {
+  row_pins = rows; 
+  col_pins = cols;
+  sx1509_i2c_addr = i2c_addr; 
   for (int i = 0; i < 4; i++) {
-    sx1509_pin_config_output(row_pins[i]);
-    sx1509_pin_write(row_pins[i], true); // set high at init
+    sx1509_pin_config_output(sx1509_i2c_addr, row_pins[i]);
+    sx1509_pin_write(sx1509_i2c_addr, row_pins[i], true); // set high at init
   }
 
   // Col pins -> Input (pull up)
   for (int i = 0; i < 3; i++) {
-    sx1509_pin_config_input_pullup(col_pins[i]);
+    sx1509_pin_config_input_pullup(sx1509_i2c_addr, col_pins[i]);
   }
 
   //app_timer_init();
@@ -47,23 +52,21 @@ bool keypad_init(void) {
   return true;
 }
 
-char key_prev = '\0'; 
-
 static void keypad_read_input(void) {
     char key_current = '\0';
 
     // Keyboard Scanning
     for (int r = 0; r < 4; r++) {
-      sx1509_pin_write(row_pins[r], false);  // Scanned Row: Set Output as low
+      sx1509_pin_write(sx1509_i2c_addr, row_pins[r], false);  // Scanned Row: Set Output as low
       nrf_delay_us(10);
 
       for (int c = 0; c < 3; c++) {
-        if (!sx1509_pin_read(col_pins[c])) { // Scan Cols: low -> col is pressed
+        if (!sx1509_pin_read(sx1509_i2c_addr, col_pins[c])) { // Scan Cols: low -> col is pressed
           key_current = key_map[r][c];
           break; 
         }
       }
-      sx1509_pin_write(row_pins[r], true); // Write current row back to high
+      sx1509_pin_write(sx1509_i2c_addr, row_pins[r], true); // Write current row back to high
 
       if (key_current != '\0') { // If key already found, end row scanning early
           break;
