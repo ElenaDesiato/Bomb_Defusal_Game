@@ -12,13 +12,13 @@
 
 #include "switch_puzzle.h"
 
-uint16_t switch_pins[NUM_SWITCHES] = {0, 0, 0, 0, 0};
-uint16_t switch_pins_mapped_values[NUM_SWITCHES] = {0,0,0,0,0};
-bool switch_pins_state[NUM_SWITCHES] = {0,0,0,0,0};
-uint16_t reset_pin = 0; 
-uint16_t sum = 0;
+static uint16_t switch_pins[NUM_SWITCHES] = {0, 0, 0, 0, 0};
+static uint16_t switch_pins_mapped_values[NUM_SWITCHES] = {0,0,0,0,0};
+static bool switch_pins_state[NUM_SWITCHES] = {0,0,0,0,0};
+static uint16_t reset_pin = 0; 
+static uint16_t sum = 0;
 
-bool debug = true; 
+static bool debug = true; 
 
 // Making randomized mapping for the switches
 static void randomize_switch_mapping() {

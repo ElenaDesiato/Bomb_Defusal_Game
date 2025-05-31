@@ -21,7 +21,7 @@ static struct {
   uint8_t r, g, b;
 } rgb[16]; // 16 LEDs
 
-uint16_t neopixel_pin = 0; 
+static uint16_t neopixel_pin = 0; 
 
 //RGB
 // By not having full 255 values (instead ~1/4 of that) the LEDs should not be bright enough to hurt our eyes
@@ -43,7 +43,7 @@ static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(0);
 static nrf_pwm_values_common_t sequence_data[16 * 24] = {0};
 
 // Sequence structure for configuring DMA
-nrf_pwm_sequence_t pwm_sequence = {
+static nrf_pwm_sequence_t pwm_sequence = {
   .values.p_common = sequence_data,
   .length = 1,
   .repeats = 0,
@@ -104,7 +104,7 @@ void neopixel_set_rgb(uint8_t led,uint8_t r, uint8_t g, uint8_t b) {
   - countertop = input clock/output frequency  = 16 000 000 / 800 000 = 20
 */
 
-void neopixel_show(void) {
+static void neopixel_show(void) {
   uint16_t pwm_index = 0;
 
   // Make sure that data is sent in order GRB and then with bit 7 first
@@ -131,8 +131,6 @@ void neopixel_show(void) {
   nrf_pwm_event_clear(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED);
 
   nrf_delay_us(RESET_DELAY_US);
-  //printf("In show: \n");
-  //print_sequence_data();
 }
 
 void neopixel_set_color(uint8_t led, color_name_t color) {
