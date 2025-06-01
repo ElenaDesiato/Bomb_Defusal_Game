@@ -48,6 +48,8 @@ static void randomize_switch_mapping() {
         or_result |= switch_pins_mapped_values[i];
     }
     if (debug) printf("Bitwise OR result: %04X\n", or_result);  // Should be FFFF
+
+    if (or_result != 0xFFFF) {randomize_switch_mapping();} 
 }
 
 static void update_switch_status() {
