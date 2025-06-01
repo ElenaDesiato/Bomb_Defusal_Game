@@ -14,17 +14,16 @@
 
 #include "microbit_v2.h"
 
-#define NUM_INSTRUCTIONS_MAX 5  // Maximum number of instructions we can define
+#define MAX_INSTRUCTIONS 5  // Maximum number of instructions we can define
 #define NUM_INSTRUCTIONS_TO_PLAY 3 // How many instructions to complete the puzzle
 
 #define ANGLE_TOLERANCE 15     // degrees tolerance (increased a bit for usability)
 #define HOLD_TIME_MS 2000       // must hold the pose this long
 #define CHECK_INTERVAL_MS 200   // check every 200ms (more frequent checks during hold)
 
-APP_TIMER_DEF(ACCEL_CHECK_TIMER); // Define the timer ID
+APP_TIMER_DEF(ACCEL_CHECK_TIMER); 
 
-// TWI manager instance defined globally as per your snippet
-NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0); // Max pending transfers, instance index
+NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0); 
 
 // Static module variables
 static uint8_t sx1509_i2c_addr = 0;
@@ -33,19 +32,19 @@ static bool puzzle_initialized = false;
 static bool puzzle_active = false; 
 static bool puzzle_complete = false;
 
-static bool debug = true;
+static bool debug = true; // for debug
 
 // Current state variables
 static volatile bool holding_correct_pose_volatile = false; 
-static volatile bool posture_timer_is_running = false; 
+static volatile bool accel_check_timer_running = false; 
 
-static accel_puzzle_instruction_t defined_instructions[NUM_INSTRUCTIONS_MAX];
-static int current_instruction_idx = 0;
+static accel_puzzle_instruction_t defined_instructions[MAX_INSTRUCTIONS];
+static int curr_instruction = 0;
 static int instructions_completed_count = 0;
 
 // Forward declarations for static functions
-static void stop_posture_check_timer();
-static void start_posture_check_timer();
+static void stop_accel_check_timer();
+static void start_accel_check_timer();
 static void posture_check_timer_handler(void* p_context);
 static void generate_instruction();
 static bool is_angle_in_tolerance(float current_value, float target_value);
@@ -73,8 +72,7 @@ static bool is_angle_in_tolerance(float current_value, float target_value) {
 
 // Timer handler: Called periodically when the posture hold timer is active
 static void posture_check_timer_handler(void* p_context) {
-    if (!puzzle_active || !posture_timer_is_running) {
-        // Puzzle stopped or timer was meant to be stopped, but handler fired one last time
+    if (!puzzle_active || !accel_check_timer_running) {
         return;
     }
 
@@ -86,12 +84,11 @@ static void posture_check_timer_handler(void* p_context) {
         current_roll_val = lsm6dso_get_roll();
     } else {
         if (debug) printf("ACCEL: LSM6DSO not ready in timer handler.\n");
-        holding_correct_pose_volatile = false; // Cannot verify, assume failure
-        // stop_posture_check_timer(); // Main loop will handle this after HOLD_TIME_MS
+        holding_correct_pose_volatile = false; 
         return; // Exit if sensor not ready
     }
 
-    accel_puzzle_instruction_t target_instruction = defined_instructions[current_instruction_idx];
+    accel_puzzle_instruction_t target_instruction = defined_instructions[curr_instruction];
 
     if (is_angle_in_tolerance(current_pitch_val, target_instruction.pitch) &&
         is_angle_in_tolerance(current_roll_val, target_instruction.roll)) {
@@ -106,33 +103,28 @@ static void posture_check_timer_handler(void* p_context) {
         holding_correct_pose_volatile = false;
         // Do NOT stop the timer here. The main loop waits for HOLD_TIME_MS.
         // If we stop timer here, main loop might think pose was held if this was the last check.
+        stop_accel_check_timer();
     }
 }
 
-// Starts the posture check timer
-static void start_posture_check_timer() {
-    if (posture_timer_is_running) { // Should ideally not happen if logic is correct
-        app_timer_stop(ACCEL_CHECK_TIMER);
-    }
-    // Crucial: Assume pose is correct when starting timer. Handler will falsify if it's lost.
+static void start_accel_check_timer() {
     holding_correct_pose_volatile = true;
-    posture_timer_is_running = true;
+    accel_check_timer_running = true;
 
     uint32_t err_code = app_timer_start(ACCEL_CHECK_TIMER, APP_TIMER_TICKS(CHECK_INTERVAL_MS), NULL);
-    APP_ERROR_CHECK(err_code); // Ensure timer started
-
+    APP_ERROR_CHECK(err_code); 
     if (debug) printf("ACCEL: Posture check timer started.\n");
 }
 
 // Stops the posture check timer
-static void stop_posture_check_timer() {
-    if (posture_timer_is_running) {
+static void stop_accel_check_timer() {
+    if (accel_check_timer_running) {
         uint32_t err_code = app_timer_stop(ACCEL_CHECK_TIMER);
         // It's okay if it returns NRF_ERROR_INVALID_STATE if timer wasn't running
         if (err_code != NRF_SUCCESS && err_code != NRF_ERROR_INVALID_STATE) {
             APP_ERROR_CHECK(err_code);
         }
-        posture_timer_is_running = false;
+        accel_check_timer_running = false;
         if (debug) printf("ACCEL: Posture check timer stopped.\n");
     }
     // `holding_correct_pose_volatile` is NOT reset here. Its value after the hold period is what matters.
@@ -179,7 +171,7 @@ void accel_puzzle_init(uint8_t sx1509_addr, accel_puzzle_pins_t* p_pins, bool en
     APP_ERROR_CHECK(err_code);
 
     generate_instruction();
-    current_instruction_idx = 0;
+    curr_instruction = 0;
     instructions_completed_count = 0;
     puzzle_initialized = true;
     puzzle_active = false; // Puzzle is initialized but not yet started
@@ -193,19 +185,18 @@ bool accel_puzzle_start(void) {
     nrf_delay_ms(500);
 
     puzzle_active = true;
-    current_instruction_idx = 0; // Start from the first instruction
+    curr_instruction = 0; // Start from the first instruction
     instructions_completed_count = 0;
 
     while (instructions_completed_count < NUM_INSTRUCTIONS_TO_PLAY && puzzle_active) {
-        if (current_instruction_idx >= NUM_INSTRUCTIONS_MAX) {
-             // Should not happen if NUM_INSTRUCTIONS_TO_PLAY <= NUM_INSTRUCTIONS_MAX
+        if (curr_instruction >= MAX_INSTRUCTIONS) {
             if (debug) printf("ACCEL: Ran out of defined instructions!\n");
             DFR0760_say("Internal error.");
             puzzle_active = false;
             return false;
         }
 
-        accel_puzzle_instruction_t current_target = defined_instructions[current_instruction_idx];
+        accel_puzzle_instruction_t current_target = defined_instructions[curr_instruction];
         char speech_buf[128];
         snprintf(speech_buf, sizeof(speech_buf), "Tilt pitch to %d and roll to %d degrees.",
                  current_target.pitch, current_target.roll);
@@ -223,7 +214,7 @@ bool accel_puzzle_start(void) {
             if (lsm6dso_is_ready()) {
                 live_pitch = lsm6dso_get_pitch();
                 live_roll = lsm6dso_get_roll();
-                if (debug && !posture_timer_is_running) { // Only print live data when not in timed hold
+                if (debug && !accel_check_timer_running) { // Only print live data when not in timed hold
                      printf("ACCEL: Live P:%.1f, R:%.1f (Target P:%d, R:%d)\r",
                            live_pitch, live_roll, current_target.pitch, current_target.roll);
                 }
@@ -240,9 +231,9 @@ bool accel_puzzle_start(void) {
                 DFR0760_say("Hold it.");
                 nrf_delay_ms(200); // Small delay to ensure user is stable after speech
 
-                start_posture_check_timer();
+                start_accel_check_timer();
                 nrf_delay_ms(HOLD_TIME_MS); // Blocking delay for the hold duration
-                stop_posture_check_timer();  // Stop the timer regardless of outcome
+                stop_accel_check_timer();  // Stop the timer regardless of outcome
 
                 if (holding_correct_pose_volatile) {
                     if (debug) printf("ACCEL: Pose HELD successfully for step %d!\n", instructions_completed_count + 1);
@@ -250,7 +241,7 @@ bool accel_puzzle_start(void) {
                     nrf_delay_ms(300);
                     current_instruction_done = true;
                     instructions_completed_count++;
-                    current_instruction_idx++; // Move to next DIFFERENT instruction in the defined list
+                    curr_instruction++; // Move to next DIFFERENT instruction in the defined list
                                                // Or implement random selection here
                 } else {
                     if (debug) printf("ACCEL: Pose NOT HELD. Try again for P:%d, R:%d.\n", current_target.pitch, current_target.roll);
