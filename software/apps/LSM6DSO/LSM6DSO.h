@@ -114,6 +114,8 @@ bool lsm6dso_is_ready(void);
 // Returns tilt angle in degrees - non-blocking
 // Should NOT be called unless lsm6dso_is_ready returns true
 float lsm6dso_get_tilt(void); 
+float lsm6dso_get_pitch(void); 
+float lsm6dso_get_row(void); 
 
 
 #endif

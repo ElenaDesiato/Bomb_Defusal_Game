@@ -17,7 +17,7 @@
 
 #define CONCAT(msbits, lsbits) ((int16_t)((msbits << 8) | lsbits))
 
-#define ACC_MEASUREMENT_INTERVAL 1000    // interval between measurements in ms
+#define ACC_MEASUREMENT_INTERVAL 100    // interval between measurements in ms
 
 APP_TIMER_DEF(measurement_timer); 
 
@@ -27,6 +27,8 @@ static const nrf_twi_mngr_t* i2c_manager = NULL;
 //Global variables for measurements
 static lsm6dso_measurement_t curr_measurement = {0}; 
 static float curr_tilt = 0.0; 
+static float curr_pitch = 0.0; 
+static float curr_row = 0.0; 
 static bool isReady = false; 
 
 
@@ -104,6 +106,24 @@ static float acceleration_to_angle(lsm6dso_measurement_t* m){
   return atan(sqrt(x_val*x_val + y_val*y_val) / z_val) * 180.0/M_PI;
 }
 
+static float acceleration_to_pitch(lsm6dso_measurement_t* m){
+  // multiply by sensitivity, add bias, convert mg -> g
+  float x_val = (m->x_axis * 0.061 + 20)/1000.0;  
+  float y_val = (m->y_axis * 0.061 + 20)/1000.0;  
+  float z_val = (m->z_axis * 0.061 + 20)/1000.0;  
+  // use formula to compute tilt angle
+  return atan(x_val / sqrt(z_val*z_val + y_val*y_val)) * 180.0/M_PI;
+}
+
+static float acceleration_to_row(lsm6dso_measurement_t* m){
+  // multiply by sensitivity, add bias, convert mg -> g
+  float x_val = (m->x_axis * 0.061 + 20)/1000.0;  
+  float y_val = (m->y_axis * 0.061 + 20)/1000.0;  
+  float z_val = (m->z_axis * 0.061 + 20)/1000.0;  
+  // use formula to compute tilt angle
+  return atan(y_val / sqrt(z_val*z_val + x_val*x_val)) * 180.0/M_PI;
+}
+
 // Helper function to read raw accelerometer data, inspired by lab6
 static lsm6dso_measurement_t get_raw_accel_data(void) {
   isReady = false; 
@@ -124,6 +144,8 @@ static lsm6dso_measurement_t get_raw_accel_data(void) {
 static void set_measurement(void* p_context) {
   curr_measurement = get_raw_accel_data(); 
   curr_tilt = acceleration_to_angle(&curr_measurement); 
+  curr_pitch = acceleration_to_pitch(&curr_measurement);
+  curr_row = acceleration_to_row(&curr_measurement);
   isReady = true; 
 }
 
@@ -136,6 +158,15 @@ bool lsm6dso_is_ready(void) {
 float lsm6dso_get_tilt(void) {
   return curr_tilt; 
 }
+
+float lsm6dso_get_pitch(void) {
+  return curr_pitch; 
+}
+
+float lsm6dso_get_row(void) {
+  return curr_row; 
+}
+
 
 /* Initialize sensor
     * ignore most features as not needed: no FIFO buffer (default off), no interrupts

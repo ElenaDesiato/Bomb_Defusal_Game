@@ -24,9 +24,14 @@ int main(void) {
   // Loop forever
   while (1) {
     if (lsm6dso_is_ready()) {
-      float curr = lsm6dso_get_tilt(); 
-      printf("Tilt angle: %.2f \n", curr); 
+      float tilt = lsm6dso_get_tilt(); 
+      float row = lsm6dso_get_row(); 
+      float pitch = lsm6dso_get_pitch(); 
+      printf("Tilt angle: %.2f \n", tilt); 
+      printf("Row angle: %.2f \n", row); 
+      printf("Pitch angle: %.2f \n", pitch); 
+      printf("==================\n");
     }
-    nrf_delay_ms(1000);
+    nrf_delay_ms(500);
   }
 }
