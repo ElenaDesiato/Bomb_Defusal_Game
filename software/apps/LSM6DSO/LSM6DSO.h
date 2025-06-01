@@ -115,7 +115,7 @@ bool lsm6dso_is_ready(void);
 // Should NOT be called unless lsm6dso_is_ready returns true
 float lsm6dso_get_tilt(void); 
 float lsm6dso_get_pitch(void); 
-float lsm6dso_get_row(void); 
+float lsm6dso_get_roll(void); 
 
 
 #endif

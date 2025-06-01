@@ -25,10 +25,10 @@ int main(void) {
   while (1) {
     if (lsm6dso_is_ready()) {
       float tilt = lsm6dso_get_tilt(); 
-      float row = lsm6dso_get_row(); 
+      float roll = lsm6dso_get_roll(); 
       float pitch = lsm6dso_get_pitch(); 
       printf("Tilt angle: %.2f \n", tilt); 
-      printf("Row angle: %.2f \n", row); 
+      printf("Roll angle: %.2f \n", roll); 
       printf("Pitch angle: %.2f \n", pitch); 
       printf("==================\n");
     }

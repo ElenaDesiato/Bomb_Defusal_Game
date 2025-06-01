@@ -28,7 +28,7 @@ static const nrf_twi_mngr_t* i2c_manager = NULL;
 static lsm6dso_measurement_t curr_measurement = {0}; 
 static float curr_tilt = 0.0; 
 static float curr_pitch = 0.0; 
-static float curr_row = 0.0; 
+static float curr_roll = 0.0; 
 static bool isReady = false; 
 
 
@@ -115,7 +115,7 @@ static float acceleration_to_pitch(lsm6dso_measurement_t* m){
   return atan(x_val / sqrt(z_val*z_val + y_val*y_val)) * 180.0/M_PI;
 }
 
-static float acceleration_to_row(lsm6dso_measurement_t* m){
+static float acceleration_to_roll(lsm6dso_measurement_t* m){
   // multiply by sensitivity, add bias, convert mg -> g
   float x_val = (m->x_axis * 0.061 + 20)/1000.0;  
   float y_val = (m->y_axis * 0.061 + 20)/1000.0;  
@@ -145,7 +145,7 @@ static void set_measurement(void* p_context) {
   curr_measurement = get_raw_accel_data(); 
   curr_tilt = acceleration_to_angle(&curr_measurement); 
   curr_pitch = acceleration_to_pitch(&curr_measurement);
-  curr_row = acceleration_to_row(&curr_measurement);
+  curr_roll = acceleration_to_roll(&curr_measurement);
   isReady = true; 
 }
 
@@ -163,8 +163,8 @@ float lsm6dso_get_pitch(void) {
   return curr_pitch; 
 }
 
-float lsm6dso_get_row(void) {
-  return curr_row; 
+float lsm6dso_get_roll(void) {
+  return curr_roll; 
 }
 
 
