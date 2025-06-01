@@ -121,7 +121,7 @@ static lsm6dso_measurement_t get_raw_accel_data(void) {
 }
 
 // Function that sets measurement periodically
-static void set_measurement(void) {
+static void set_measurement(void* p_context) {
   curr_measurement = get_raw_accel_data(); 
   curr_tilt = acceleration_to_angle(&curr_measurement); 
   isReady = true; 
