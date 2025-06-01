@@ -15,7 +15,7 @@
 
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
 
-static uint8_t sx1509_i2c_addr = 0; 
+static uint8_t sx1509_i2c_addr = SX1509_ADDR_10; 
 static morse_puzzle_pins_t* pins = NULL; 
 static uint8_t solution_length = 0; 
 static char* solution_str = "";
@@ -87,6 +87,7 @@ void morse_puzzle_init(uint8_t i2c_addr, morse_puzzle_pins_t* puzzle_pins) {
   app_timer_init(); 
   keypad_init(sx1509_i2c_addr,pins->rows, pins->cols); 
   lilybuzzer_init(pins->buzzer); 
+  sx1509_pin_config_input_pullup(sx1509_i2c_addr, pins->puzzle_select);
 
   sx1509_pin_config_output(sx1509_i2c_addr,  pins->led_b); 
   sx1509_pin_config_output(sx1509_i2c_addr,  pins->led_r); 
@@ -100,7 +101,8 @@ bool morse_puzzle_start(void) {
 
   while(1) {
     // Reset if puzzle select is pressed
-    if (sx1509_pin_read(sx1509_i2c_addr,  pins->puzzle_select)) {
+    if (!sx1509_pin_read(sx1509_i2c_addr,  pins->puzzle_select)) {
+      if (debug) {printf("puzzle select button pressed. pin value: %d \n",sx1509_pin_read(sx1509_i2c_addr,  pins->puzzle_select) );}
       printf("Puzzle reset.\n");
       stop_buzzer();
       play_morse_message(solution_str,solution_length); 
@@ -116,4 +118,4 @@ bool morse_puzzle_start(void) {
 
 bool morse_puzzle_is_complete(void) {
   return puzzle_complete;
-}
+} 
