@@ -35,7 +35,7 @@ int main(void) {
   i2c_config.frequency = NRF_DRV_TWI_FREQ_100K;
   i2c_config.interrupt_priority = 0;
   nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
-  uint8_t i2c_addr = SX1509_ADDR_00; 
+  uint8_t i2c_addr = SX1509_ADDR_10; 
 
   sx1509_init(i2c_addr, &twi_mngr_instance);
 

@@ -5,6 +5,7 @@
 #include <math.h>
 #include <time.h>
 
+#include "app_timer.h"
 #include "nrf_delay.h"
 #include "microbit_v2.h"
 #include "../neopixel_ring/neopixel_ring.h"
@@ -12,13 +13,15 @@
 
 #include "switch_puzzle.h"
 
-static uint16_t switch_pins[NUM_SWITCHES] = {0, 0, 0, 0, 0};
-static uint16_t switch_pins_mapped_values[NUM_SWITCHES] = {0,0,0,0,0};
+static uint8_t switch_pins[NUM_SWITCHES] = {0, 0, 0, 0, 0};
 static bool switch_pins_state[NUM_SWITCHES] = {0,0,0,0,0};
-static uint16_t reset_pin = 0; 
+static uint8_t select_pin = 0; 
 static uint16_t sum = 0;
+static uint16_t switch_pins_mapped_values[NUM_SWITCHES] = {0,0,0,0,0};
 
-static bool debug = true; 
+static bool debug = false; 
+
+APP_TIMER_DEF(loop_timer);
 
 // Making randomized mapping for the switches
 static void randomize_switch_mapping() {
@@ -72,54 +75,50 @@ static void update_neopixel_ring() {
 }
 
 bool switch_puzzle_is_complete() {
-    if (sum == 0xFFFF) {return true;}
-    return false;
+    return sum == 0xFFFF; 
 }
 
-void switch_puzzle_init(uint16_t puzzle_reset_pin, uint16_t* puzzle_switch_pins, uint16_t puzzle_neopixel_pin) {
-    reset_pin = puzzle_reset_pin;
+void switch_puzzle_init(switch_puzzle_pins_t* pins, bool p_debug) {
+    debug = p_debug; 
+    select_pin = pins->puzzle_select; 
     for (int i = 0; i < NUM_SWITCHES; i++) {
-        switch_pins[i] = puzzle_switch_pins[i];
+        switch_pins[i] = pins->switches[i];
     }
-    neopixel_ring_init(puzzle_neopixel_pin);  
-    nrf_gpio_cfg_input(reset_pin, NRF_GPIO_PIN_PULLUP);
+    neopixel_ring_init(pins->neopixel);  
+    nrf_gpio_cfg_input(select_pin, NRF_GPIO_PIN_PULLUP);
     for (int i = 0; i < NUM_SWITCHES; i++) {
         nrf_gpio_cfg_input(switch_pins[i], NRF_GPIO_PIN_NOPULL);
     }
     rng_init(); 
 
-    // reset globals
-    sum = 0; 
-    for (int i = 0; i < NUM_SWITCHES; i++) {
-        switch_pins_state[i] = 0;
-        switch_pins_mapped_values[i] = 0;
-    }
-
     // random generator seed
     srand(rng_get8());
+    app_timer_create(&loop_timer, APP_TIMER_MODE_SINGLE_SHOT, switch_puzzle_continue);
+    sum = 0;
+}
+
+void switch_puzzle_start(void) {
+    sum = 0; 
+    update_neopixel_ring(); 
+    randomize_switch_mapping();
+}
+
+void switch_puzzle_continue(void) {    
+    update_switch_status();
+    update_neopixel_ring();
+    if (switch_puzzle_is_complete()){
+        neopixel_set_color_all(COLOR_GREEN);
+        if (debug) printf("Switch puzzle: Success!.\n");
+        switch_puzzle_stop();
+    }
+    else {
+        app_timer_start(loop_timer, APP_TIMER_TICKS(10), NULL);
+    }
 }
 
 
-bool switch_puzzle_start(void) {    
-    if (debug) printf("Started switch puzzle.\n");
-    randomize_switch_mapping();
-
-    while(1) {
-        // Reset if puzzle select is pressed
-        if (!nrf_gpio_pin_read(reset_pin)) {
-            printf("RESET button pressed. Puzzle reset.\n");
-            return false; 
-        }
-    
-        update_switch_status();
-        update_neopixel_ring();
-        if (switch_puzzle_is_complete()){
-            neopixel_set_color_all(COLOR_GREEN);
-            printf("Success!.\n");
-            return true;
-        }
-        nrf_delay_ms(400);
-    }
-    return false; 
+void switch_puzzle_stop(void) {
+    app_timer_stop(loop_timer);
+    if (!switch_puzzle_is_complete()) neopixel_clear_all();
 }
 

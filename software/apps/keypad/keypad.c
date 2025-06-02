@@ -14,7 +14,7 @@ APP_TIMER_DEF(keypad_scanning_timer);
 
 #define MAX_RECORD_LENGTH 10
 // keypad
-static int8_t* row_pins = NULL; 
+static uint8_t* row_pins = NULL; 
 static uint8_t* col_pins = NULL;
 static uint8_t sx1509_i2c_addr = 0; 
 
@@ -29,8 +29,13 @@ static const char key_map[4][3] = {
   {'*', '0', '#'} 
 };
 
-static void keypad_read_input(void);
+static void keypad_read_input(void* _unused);
 
+static bool debug = false; 
+
+void keypad_start_scanning(void) {
+  app_timer_start(keypad_scanning_timer, 3000, NULL); 
+}
 
 bool keypad_init(uint8_t i2c_addr, uint8_t* rows, uint8_t* cols) {
   row_pins = rows; 
@@ -47,12 +52,13 @@ bool keypad_init(uint8_t i2c_addr, uint8_t* rows, uint8_t* cols) {
   }
 
   //app_timer_init();
-  app_timer_create(&keypad_scanning_timer, APP_TIMER_MODE_REPEATED, keypad_read_input);
-  app_timer_start(keypad_scanning_timer, 3000, NULL);
+  ret_code_t err = app_timer_create(&keypad_scanning_timer, APP_TIMER_MODE_REPEATED, keypad_read_input);
+  if (err != NRF_SUCCESS) printf("Timer create error: %d\n", err);
+  keypad_start_scanning(); 
   return true;
 }
 
-static void keypad_read_input(void) {
+static void keypad_read_input(void* _unused) {
     char key_current = '\0';
 
     // Keyboard Scanning
@@ -76,7 +82,7 @@ static void keypad_read_input(void) {
     if (key_current != '\0' && key_current != key_prev) { 
         key_prev = key_current;
         key_record[record_index++] = key_current;
-        printf("Key_current: %c\n",key_current);
+        if (debug) printf("Key_current: %c\n",key_current);
     } else if (key_current == '\0') {
       key_prev = '\0';
     } 
@@ -107,6 +113,6 @@ void print_keypad_input(void) {
 }
 
 void keypad_stop_scanning(void) {
-  printf("Stop scanning called \n");
+  if (debug) printf("Stop scanning called \n");
   app_timer_stop(keypad_scanning_timer); // Stop the scanning timer
 }

@@ -26,6 +26,8 @@
 
 APP_TIMER_DEF(symbol_timer);
 
+bool debug = false;
+
 // One morse symbol
 typedef enum {
     DOT,
@@ -81,7 +83,7 @@ static const morse_map_t morse_table[] = {
 };
 
 // PWM configuration
-static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(0);
+static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(1);
 
 // Holds duty cycle values to trigger PWM toggle
 static nrf_pwm_values_common_t sequence_data[1] = {0};
@@ -112,17 +114,17 @@ void lilybuzzer_init(uint8_t buzzer_pin) {
         .irq_priority = 1,
         .base_clock = NRF_PWM_CLK_500kHz,
         .count_mode = NRF_PWM_MODE_UP,
-        .top_value = 0,
+        .top_value = 500000/MORSE_NOTE_FREQUENCY,
         .load_mode = NRF_PWM_LOAD_COMMON,
         .step_mode = NRF_PWM_STEP_AUTO,
     }; 
     nrfx_pwm_init(&PWM_INST, &config, NULL);
 
-    NRF_PWM0->COUNTERTOP = 500000/MORSE_NOTE_FREQUENCY;
     sequence_data[0]= 0.5 * (500000/MORSE_NOTE_FREQUENCY); 
 
     //app_timer_init(); 
-    app_timer_create(&symbol_timer, APP_TIMER_MODE_SINGLE_SHOT, play_curr_symbol);
+    ret_code_t err = app_timer_create(&symbol_timer, APP_TIMER_MODE_SINGLE_SHOT, play_curr_symbol);
+    if (err != NRF_SUCCESS) printf("Timer create error: %d\n", err);
 
     string_to_play = ""; 
     string_length = 0;
@@ -132,7 +134,8 @@ void lilybuzzer_init(uint8_t buzzer_pin) {
 
 // Stop playing all sounds
 void stop_buzzer(void) {
-    nrfx_pwm_stop(&PWM_INST, false);
+    if (debug) printf("Stop buzzer is called \n");
+    nrfx_pwm_stop(&PWM_INST, true);
     app_timer_stop(symbol_timer); 
 }
 
@@ -154,6 +157,7 @@ static morse_map_t* morse_lookup(char ch) {
 /* Callback function called when timer is triggered
 */
 static void play_curr_symbol() {
+    if (debug) printf("Play curr symbol is called \n");
     nrfx_pwm_stop(&PWM_INST, true);
     if (curr_char_index >= string_length) {
         stop_buzzer(); 
@@ -161,6 +165,12 @@ static void play_curr_symbol() {
     }
     uint32_t timer_ms = 0; 
     morse_map_t* curr_char = morse_lookup(string_to_play[curr_char_index]); 
+    if (!curr_char) {
+        printf("Symbol is not supported: %c\n",string_to_play[curr_char_index]); 
+        curr_char_index++; 
+        app_timer_start(symbol_timer, APP_TIMER_TICKS(1),NULL); 
+        return; 
+    }
     if (curr_symbol_index >= curr_char->length) { // pattern of current char is over
         timer_ms = CHAR_SPACE_LENGTH;
         curr_char_index++; 
@@ -182,7 +192,7 @@ static void play_curr_symbol() {
         curr_symbol_index++; 
         
     }
-    app_timer_start(symbol_timer, 33*timer_ms, NULL); //33 ticks = roughly 1 ms
+    app_timer_start(symbol_timer, APP_TIMER_TICKS(timer_ms), NULL); //33 ticks = roughly 1 ms
 }
 
 
@@ -190,6 +200,7 @@ static void play_curr_symbol() {
     - morse code details defined in macros based on international standards
 */
 void play_morse_message(const char* message, uint32_t length) {
+    if (debug) printf("Play morse message is called \n");
     string_to_play = message; 
     string_length = length;
     curr_char_index = 0; 

@@ -2,8 +2,23 @@
 
 #define NUM_SWITCHES 5 
 
-void switch_puzzle_init(uint16_t puzzle_reset_pin, uint16_t* puzzle_switch_pins, uint16_t puzzle_neopixel_pin);
-// Start puzzle. Return true iff puzzle is complete.
-bool switch_puzzle_start(void); 
+typedef struct {
+    uint8_t switches[NUM_SWITCHES];     
+    uint8_t puzzle_select;
+    uint8_t neopixel;
+} switch_puzzle_pins_t; 
+
+// Initialize puzzle. Only call once.
+void switch_puzzle_init(switch_puzzle_pins_t* pins, bool debug);
+
+// Start puzzle (reset puzzle state & generate new solution)
+void switch_puzzle_start(void); 
+
+// Continue playing existing puzzle instance
+void switch_puzzle_continue(void); 
+
+// End everything related to the puzzle.
+void switch_puzzle_stop(void); 
+
 // Returns true iff puzzle has been successfully completed.
 bool switch_puzzle_is_complete(void);

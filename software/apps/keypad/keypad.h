@@ -8,6 +8,7 @@
 bool keypad_init(uint8_t i2c_addr, uint8_t* row_pins, uint8_t* col_pins);
 
 void keypad_clear_input_record(void);
+void keypad_start_scanning(void);
 void keypad_stop_scanning(void);
 
 char* keypad_get_input(void); 

@@ -28,6 +28,7 @@
 #define ACK_ERROR_BUSY_SYNTHESIS      0x42  // 'B' - Chip busy with another synthesis task
 
 bool DFR0760_init(const nrf_twi_mngr_t* twi_manager);
+// Sets volume: 1-9 (1 lowest, 9 highest)
 void DFR0760_set_volume(int volume);
 void DFR0760_say(const char* text);
 void DFR0760_stop(void);

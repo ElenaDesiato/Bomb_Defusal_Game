@@ -2,13 +2,15 @@
 #include "switch_puzzle.h"
 
 int main(void) {
-    printf("Board started ...\n");
-    uint16_t switch_pins[NUM_SWITCHES] = {EDGE_P3, EDGE_P4, EDGE_P5, EDGE_P6, EDGE_P7};
-    uint16_t puzzle_select_pin = EDGE_P14; 
-    uint16_t neopixel_pin = EDGE_P9;
-    switch_puzzle_init(puzzle_select_pin, switch_pins, neopixel_pin); 
+    switch_puzzle_pins_t switch_puzzle_pins = {
+        // All on breakout
+        .switches = {EDGE_P3, EDGE_P4, EDGE_P5, EDGE_P6, EDGE_P7},
+        .puzzle_select = EDGE_P14,
+        .neopixel = EDGE_P9,
+    };
+    switch_puzzle_init(&switch_puzzle_pins, false); 
     while (1) {
-        if (!nrf_gpio_pin_read(puzzle_select_pin)) {
+        if (!nrf_gpio_pin_read(switch_puzzle_pins.puzzle_select)) {
             switch_puzzle_start(); 
         }
     }

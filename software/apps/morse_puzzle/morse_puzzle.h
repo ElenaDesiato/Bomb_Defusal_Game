@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nrf_twi_mngr.h"
+
 #define NUM_SWITCHES 5
 
 typedef struct {
@@ -12,8 +14,17 @@ typedef struct {
     uint8_t buzzer;
 } morse_puzzle_pins_t; 
 
-void morse_puzzle_init(uint8_t i2c_addr, morse_puzzle_pins_t* pins);
-// Start puzzle. Return true iff puzzle is complete.
-bool morse_puzzle_start(void); 
+// Initialize puzzle; only call once
+void morse_puzzle_init(uint8_t i2c_addr, nrf_twi_mngr_t* twi_mgr_instance, morse_puzzle_pins_t* pins, bool debug);
+
+// Start puzzle (reset state & generate new solution)
+void morse_puzzle_start(void); 
+
+// Continue playing existing puzzle instance
+void morse_puzzle_continue(void); 
+
+// End everything related to the puzzle
+void morse_puzzle_stop(void);
+
 // Returns true iff puzzle has been successfully completed.
 bool morse_puzzle_is_complete(void);
