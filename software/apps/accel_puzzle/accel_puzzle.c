@@ -59,7 +59,7 @@ static void generate_instruction() {
   defined_instructions[2] = (accel_puzzle_instruction_t){.pitch = -45, .roll = 0};
   defined_instructions[3] = (accel_puzzle_instruction_t){.pitch = 0, .roll = -45};
   defined_instructions[4] = (accel_puzzle_instruction_t){.pitch = 30, .roll = -30};
-  // NOTE: angles should be intuitional.
+  // NOTE: angles should be intuitional
   // Pitch: -90 (nose down) to 90 (nose up)
   // Roll: -90 (left side down) to 90 (right side down) - though often -180 to 180. LSM6DSO typically gives good range.
 }
@@ -101,8 +101,6 @@ static void posture_check_timer_handler(void* p_context) {
                    current_pitch_val, current_roll_val);
         }
         holding_correct_pose_volatile = false;
-        // Do NOT stop the timer here. The main loop waits for HOLD_TIME_MS.
-        // If we stop timer here, main loop might think pose was held if this was the last check.
         stop_accel_check_timer();
     }
 }
