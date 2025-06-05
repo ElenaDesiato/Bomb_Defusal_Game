@@ -9,7 +9,7 @@ typedef struct {
 } switch_puzzle_pins_t; 
 
 // Initialize puzzle. Only call once.
-void switch_puzzle_init(switch_puzzle_pins_t* pins, bool debug);
+void switch_puzzle_init(const switch_puzzle_pins_t* pins, bool debug);
 
 // Start puzzle (reset puzzle state & generate new solution)
 void switch_puzzle_start(void); 

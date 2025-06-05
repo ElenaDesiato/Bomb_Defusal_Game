@@ -13,7 +13,7 @@
 
 #include "switch_puzzle.h"
 
-static uint8_t switch_pins[NUM_SWITCHES] = {0, 0, 0, 0, 0};
+static uint8_t switch_pins[NUM_SWITCHES];;
 static bool switch_pins_state[NUM_SWITCHES] = {0,0,0,0,0};
 static uint8_t select_pin = 0; 
 static uint16_t sum = 0;
@@ -78,7 +78,7 @@ bool switch_puzzle_is_complete() {
     return sum == 0xFFFF; 
 }
 
-void switch_puzzle_init(switch_puzzle_pins_t* pins, bool p_debug) {
+void switch_puzzle_init(const switch_puzzle_pins_t* pins, bool p_debug) {
     debug = p_debug; 
     select_pin = pins->puzzle_select; 
     for (int i = 0; i < NUM_SWITCHES; i++) {

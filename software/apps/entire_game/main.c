@@ -13,75 +13,105 @@
 #include "../DFR0760/DFR0760.h"
 #include "../seg7/seg7.h"
 
-NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
 static bool debug = true; 
+
+// Game parameters
+#define GAME_LENGTH_SEC 5*60
+#define TTS_VOLUME_LEVEL 4
+
+// Various configuration parameters
+NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
+
+static const nrf_drv_twi_config_t i2c_config = {
+    .scl = EDGE_P19,
+    .sda = EDGE_P20,
+    .frequency = NRF_DRV_TWI_FREQ_100K,
+    .interrupt_priority = 0,
+    .clear_bus_init = false
+};
+static const uint8_t gpio_i2c_addr0 = SX1509_ADDR_00; 
+static const uint8_t gpio_i2c_addr1 = SX1509_ADDR_10; 
+
+static const switch_puzzle_pins_t switch_puzzle_pins = {
+    // All on breakout
+    .switches = {EDGE_P3, EDGE_P4, EDGE_P5, EDGE_P6, EDGE_P7},
+    .puzzle_select = EDGE_P14,
+    .neopixel = EDGE_P9,
+};
+
+static const morse_puzzle_pins_t morse_puzzle_pins = {
+    // first few on 10 gpio expander (addr1)
+    .rows = {0, 1, 2, 3},
+    .cols = {4, 5, 6},
+    .puzzle_select = 15,
+    .led_g = 12,
+    .led_b = 13,
+    .led_r = 14,
+    .buzzer = EDGE_P13 // on breakout
+};
+
+#define START_BUTTON_PIN 8 // on 10 gpio expander
+
+// Helper functions to take care of basic game logic (starting game, completing game, running out of time)
+static void start_game(bool *is_game_running) {
+    if (debug) printf("Timer started.\n"); 
+    *is_game_running = true; 
+    morse_puzzle_start();
+    switch_puzzle_start(); 
+    seg7_set_countdown(GAME_LENGTH_SEC); 
+    seg7_start_timer();  
+}
+
+static void handle_out_of_time(bool *is_game_running) {
+    if (debug) printf("Time ran out.\n"); 
+    *is_game_running = false; 
+    seg7_stop_timer(); 
+    DFR0760_say("Boom"); 
+}
+
+static void complete_game(bool *is_game_running) {
+    if (debug) printf("Game successfully completed!\n"); 
+    *is_game_running = false; 
+    seg7_stop_timer(); 
+    DFR0760_say("Congratulations"); 
+}
 
 int main(void) {
     if (debug) printf("Board started ...\n");
-    // i2c config & initialization
-    nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
-    i2c_config.scl = EDGE_P19;
-    i2c_config.sda = EDGE_P20;
-    i2c_config.frequency = NRF_DRV_TWI_FREQ_100K;
-    i2c_config.interrupt_priority = 0;
-    nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
 
-    uint8_t gpio_i2c_addr0 = SX1509_ADDR_00; 
-    uint8_t gpio_i2c_addr1 = SX1509_ADDR_10; 
+    // Initialize App Timer library
+    app_timer_init();
+
+    // i2c initialization
+    nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
 
     // Initialize gpio expanders
     sx1509_init(gpio_i2c_addr0, &twi_mngr_instance); 
     sx1509_init(gpio_i2c_addr1, &twi_mngr_instance); 
 
-    // Initialize App Timer
-    app_timer_init();
-
     // Initialize timer module
-    uint32_t game_length = 5*60; 
-    seg7_init(&twi_mngr_instance, game_length, debug); 
+    seg7_init(&twi_mngr_instance, GAME_LENGTH_SEC, debug); 
 
     // Initialize switch puzzle
-    switch_puzzle_pins_t switch_puzzle_pins = {
-        // All on breakout
-        .switches = {EDGE_P3, EDGE_P4, EDGE_P5, EDGE_P6, EDGE_P7},
-        .puzzle_select = EDGE_P14,
-        .neopixel = EDGE_P9,
-    };
     switch_puzzle_init(&switch_puzzle_pins, debug); 
 
     // Initialize morse code puzzle
-    const morse_puzzle_pins_t morse_puzzle_pins = {
-        // first few on gpio 10 expander (addr1)
-        .rows = {0, 1, 2, 3},
-        .cols = {4, 5, 6},
-        .puzzle_select = 15,
-        .led_g = 12,
-        .led_b = 13,
-        .led_r = 14,
-        .buzzer = EDGE_P13 // on breakout
-    };
     morse_puzzle_init(gpio_i2c_addr1,&twi_mngr_instance,&morse_puzzle_pins, debug); 
 
     // Configure main button 
-    uint8_t main_start_button = 8; 
-    sx1509_pin_config_input_pullup(gpio_i2c_addr1, main_start_button); 
+    sx1509_pin_config_input_pullup(gpio_i2c_addr1, START_BUTTON_PIN); 
     // puzzle select buttons configured as inputs in puzzles themselves
 
     // Initialize TTS
     DFR0760_init(&twi_mngr_instance); 
-    DFR0760_set_volume(4);
+    DFR0760_set_volume(TTS_VOLUME_LEVEL);
 
     // Main game logic
     bool is_game_running = false; 
     while (1) {
         // Start timer
-        if(!is_game_running && !sx1509_pin_read(gpio_i2c_addr1,main_start_button)) {
-            if (debug) printf("Timer started.\n"); 
-            is_game_running = true; 
-            morse_puzzle_start();
-            switch_puzzle_start(); 
-            seg7_set_countdown(game_length); 
-            seg7_start_timer();  
+        if(!is_game_running && !sx1509_pin_read(gpio_i2c_addr1,START_BUTTON_PIN)) {
+            start_game(&is_game_running); 
         }
 
         // Morse Puzzle
@@ -100,17 +130,12 @@ int main(void) {
         
         // Game successfully completed
         if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete()) {
-            if (debug) printf("Game successfully completed!\n"); 
-            is_game_running = false; 
-            seg7_stop_timer(); 
-            DFR0760_say("Congratulations!"); 
+            complete_game(&is_game_running); 
         }
 
         // Timer ran out 
         if (is_game_running && time_ran_out() && !morse_puzzle_is_complete() && !switch_puzzle_is_complete()) {
-            is_game_running = false; 
-            seg7_stop_timer(); 
-            DFR0760_say("Boom!"); 
+            handle_out_of_time(&is_game_running);
         }
         nrf_delay_ms(100); 
     }
