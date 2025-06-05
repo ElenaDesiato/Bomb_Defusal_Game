@@ -43,7 +43,6 @@ bool DFR0760_init(const nrf_twi_mngr_t* i2c) {
     uint8_t sync_byte = 0xAA; // Sync signal
     uint8_t status_check_command[] = {CMD_HEADER, 0x00, 0x01, INQUIRYSTATUS}; // Status Check
     uint8_t ack_val = 0; // acknowledge
-    bool initialized = false;
 
     for (int i = 0; i < 40; i++) {
         // Send 0xAA
@@ -62,7 +61,6 @@ bool DFR0760_init(const nrf_twi_mngr_t* i2c) {
 
         if (i2c_read_bytes(DFR0760_ADDR, &ack_val, 1) == NRF_SUCCESS) {
             if (ack_val == ACK_DEVICE_READY) { // check if we get 0x4F from device
-                initialized = true;
                 break;
             }
         } else {

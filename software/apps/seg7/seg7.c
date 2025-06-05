@@ -1,4 +1,4 @@
-#include "7seg.h"
+#include "seg7.h"
 #include "app_timer.h"
 #include "nrf_delay.h" 
 #include <stdio.h>

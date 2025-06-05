@@ -15,7 +15,7 @@ void switch_puzzle_init(switch_puzzle_pins_t* pins, bool debug);
 void switch_puzzle_start(void); 
 
 // Continue playing existing puzzle instance
-void switch_puzzle_continue(void); 
+void switch_puzzle_continue(void* _unused); 
 
 // End everything related to the puzzle.
 void switch_puzzle_stop(void); 

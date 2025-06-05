@@ -23,10 +23,10 @@ typedef enum {
 APP_TIMER_DEF(loop_timer);
 
 static uint8_t sx1509_i2c_addr = 0; 
-static morse_puzzle_pins_t* pins = NULL; 
+static const morse_puzzle_pins_t* pins = NULL; 
 
 static uint8_t solution_length = 0; 
-static char* solution_str = "";
+static const char* solution_str = "";
 static bool is_puzzle_complete = false; 
 
 static bool debug = false; 
@@ -55,7 +55,7 @@ static void set_LED_off() {
 }
 
 // Helper function to check if keypad input matches solution
-static bool check_sequence(char* sol, uint8_t sol_len){
+static bool check_sequence(const char* sol, uint8_t sol_len){
   char* input = keypad_get_input();
   uint8_t input_len = keypad_get_input_length();
   if (input_len < sol_len) {
@@ -73,7 +73,7 @@ static bool check_sequence(char* sol, uint8_t sol_len){
   return true; 
 }
 
-void morse_puzzle_init(uint8_t i2c_addr, nrf_twi_mngr_t* twi_mgr_instance, morse_puzzle_pins_t* puzzle_pins, bool p_debug) {
+void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, const morse_puzzle_pins_t* puzzle_pins, bool p_debug) {
   debug = p_debug;
   sx1509_i2c_addr = i2c_addr; 
 
@@ -107,7 +107,7 @@ void morse_puzzle_start(void) {
   keypad_clear_input_record();
 }
 
-void morse_puzzle_continue(void) {
+void morse_puzzle_continue(void* _unused) {
   // Reset if puzzle select is pressed
   if (!sx1509_pin_read(sx1509_i2c_addr,  pins->puzzle_select)) {
     if (debug) printf("Morse Puzzle: Puzzle reset.\n");

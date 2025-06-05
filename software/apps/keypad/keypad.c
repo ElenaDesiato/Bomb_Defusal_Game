@@ -13,9 +13,9 @@ APP_TIMER_DEF(keypad_scanning_timer);
 #include "../sx1509/sx1509.h"
 
 #define MAX_RECORD_LENGTH 10
-// keypad
-static uint8_t* row_pins = NULL; 
-static uint8_t* col_pins = NULL;
+
+static const uint8_t* row_pins = NULL; 
+static const uint8_t* col_pins = NULL;
 static uint8_t sx1509_i2c_addr = 0; 
 
 static char key_record[MAX_RECORD_LENGTH]; // Array to record the key sequence
@@ -37,7 +37,7 @@ void keypad_start_scanning(void) {
   app_timer_start(keypad_scanning_timer, 3000, NULL); 
 }
 
-bool keypad_init(uint8_t i2c_addr, uint8_t* rows, uint8_t* cols) {
+bool keypad_init(uint8_t i2c_addr, const uint8_t* rows, const uint8_t* cols) {
   row_pins = rows; 
   col_pins = cols;
   sx1509_i2c_addr = i2c_addr; 
@@ -53,7 +53,7 @@ bool keypad_init(uint8_t i2c_addr, uint8_t* rows, uint8_t* cols) {
 
   //app_timer_init();
   ret_code_t err = app_timer_create(&keypad_scanning_timer, APP_TIMER_MODE_REPEATED, keypad_read_input);
-  if (err != NRF_SUCCESS) printf("Timer create error: %d\n", err);
+  if (err != NRF_SUCCESS) printf("Timer create error: %ld\n", err);
   keypad_start_scanning(); 
   return true;
 }

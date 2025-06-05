@@ -46,7 +46,7 @@ int main(void) {
 
 
     // Initialize morse code puzzle
-    morse_puzzle_pins_t morse_puzzle_pins = {
+    const morse_puzzle_pins_t morse_puzzle_pins = {
         // first few on gpio 10 expander (addr1)
         .rows = {0, 1, 2, 3},
         .cols = {4, 5, 6},
@@ -83,14 +83,14 @@ int main(void) {
         if(is_game_running && !morse_puzzle_is_complete() && !sx1509_pin_read(i2c_addr1,morse_puzzle_pins.puzzle_select)) {
             if (debug) printf("Morse puzzle started \n");
             switch_puzzle_stop();
-            morse_puzzle_continue(); 
+            morse_puzzle_continue(NULL); 
         }
 
         // Switch Puzzle
         if(is_game_running && !switch_puzzle_is_complete() && !nrf_gpio_pin_read(switch_puzzle_pins.puzzle_select)){
             if (debug) printf("Switch puzzle started \n"); 
             morse_puzzle_stop();
-            switch_puzzle_continue(); 
+            switch_puzzle_continue(NULL); 
         }
 
         // Game successfully completed

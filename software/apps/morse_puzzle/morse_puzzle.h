@@ -15,13 +15,13 @@ typedef struct {
 } morse_puzzle_pins_t; 
 
 // Initialize puzzle; only call once
-void morse_puzzle_init(uint8_t i2c_addr, nrf_twi_mngr_t* twi_mgr_instance, morse_puzzle_pins_t* pins, bool debug);
+void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, const morse_puzzle_pins_t* pins, bool debug);
 
 // Start puzzle (reset state & generate new solution)
 void morse_puzzle_start(void); 
 
 // Continue playing existing puzzle instance
-void morse_puzzle_continue(void); 
+void morse_puzzle_continue(void* _unused); 
 
 // End everything related to the puzzle
 void morse_puzzle_stop(void);

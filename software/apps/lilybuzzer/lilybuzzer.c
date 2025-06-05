@@ -97,7 +97,7 @@ static nrf_pwm_sequence_t pwm_sequence = {
 };
 
 // global variables to hold current morse state
-static char* string_to_play = ""; 
+static const char* string_to_play = ""; 
 static uint32_t string_length = 0; 
 static uint32_t curr_char_index = 0; 
 static uint8_t curr_symbol_index = 0; 
@@ -124,7 +124,7 @@ void lilybuzzer_init(uint8_t buzzer_pin) {
 
     //app_timer_init(); 
     ret_code_t err = app_timer_create(&symbol_timer, APP_TIMER_MODE_SINGLE_SHOT, play_curr_symbol);
-    if (err != NRF_SUCCESS) printf("Timer create error: %d\n", err);
+    if (err != NRF_SUCCESS) printf("Timer create error: %ld\n", err);
 
     string_to_play = ""; 
     string_length = 0;
@@ -143,7 +143,7 @@ void stop_buzzer(void) {
     - only defined uppercase letters, so any lowercase letters are converted
    Is very inefficient but it might be sufficient. 
 */
-static morse_map_t* morse_lookup(char ch) {
+static const morse_map_t* morse_lookup(char ch) {
     if (ch >= 'a' && ch <= 'z') ch -= 32; // convert to upper case
     if (ch >= 'A' && ch <= 'Z') {
         return morse_table + ch - 65;  // this is essentially an array access but without the dereference
@@ -164,7 +164,7 @@ static void play_curr_symbol() {
         return; 
     }
     uint32_t timer_ms = 0; 
-    morse_map_t* curr_char = morse_lookup(string_to_play[curr_char_index]); 
+    const morse_map_t* curr_char = morse_lookup(string_to_play[curr_char_index]); 
     if (!curr_char) {
         printf("Symbol is not supported: %c\n",string_to_play[curr_char_index]); 
         curr_char_index++; 

@@ -103,7 +103,7 @@ void switch_puzzle_start(void) {
     randomize_switch_mapping();
 }
 
-void switch_puzzle_continue(void) {    
+void switch_puzzle_continue(void* _unused) {    
     update_switch_status();
     update_neopixel_ring();
     if (switch_puzzle_is_complete()){

@@ -7,7 +7,7 @@
 #include "microbit_v2.h"
 #include "app_timer.h"
 
-#include "7seg.h"
+#include "seg7.h"
 
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
 static bool debug = true; 
