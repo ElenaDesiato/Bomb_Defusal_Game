@@ -1,3 +1,10 @@
+/* Generalized Neopixel Driver for Microbit_v2
+Goal: Drive multiple neopixel items (Ring, Jewel, Strip) via 1 pwm instance (instance 0)
+  - have to use "individual" mode instead of "common"
+  - Jewel also has RGBW format instead of RGB which is an extra byte
+Basic code structure reference: Lab5 pwm_square_tone
+*/
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "nrfx_pwm.h"
@@ -5,15 +12,18 @@
 #include "nrf_gpio.h" 
 #include "neopixel.h" 
 #include "microbit_v2.h"
+#include <stdio.h>
 
 
 #define NEOPIXEL_PWM_TOP_VALUE 20
-#define ONE_HIGH         13  // PWM value for '1' bit high duration
-#define ZERO_HIGH        6   // PWM value for '0' bit high duration
+#define ONE_HIGH         13 
+#define ZERO_HIGH        6   
 #define RESET_DELAY_US   280 // Standard WS2812B reset time is >50us, Adafruit recommends >280us for reliability
 
-#define MAX_LED_PER_DEV  16  // Max LED supported per device (can be adjusted if needed)
-#define BITS_PER_LED     24
+#define MAX_BITS 16*24  //the neopixel sends the most bits
+#define MAX_LED_PER_DEV  16  
+#define BITS_PER_LED(device)  (((device) == NEO_JEWEL) ? 32 : 24)
+#define BITS_PER_DEVICE(device) (BITS_PER_LED(device) * LED_COUNT[device])
 
 static const uint8_t LED_COUNT[NEO_DEV_COUNT] = {
   [NEO_RING]  = 16,
@@ -28,32 +38,43 @@ static const uint32_t NEOPIXEL_PINS[NEO_DEV_COUNT] = {
   [NEO_STICK] = EDGE_P1,
 };
 
-// This table is now used by neopixel_set_color
-// Values are for GRB order (typical for WS2812B)
 const color_t COLOR_TABLE[COLOR_COUNT] = {
-  [COLOR_BLACK]   = {0, 0, 0},
-  [COLOR_WHITE]   = {16, 16, 16}, // Reduced brightness
-  [COLOR_RED]     = {16, 0, 0},   // R, G, B
-  [COLOR_GREEN]   = {0, 16, 0},
-  [COLOR_BLUE]    = {0, 0, 16},
-  [COLOR_YELLOW]  = {16, 16, 0},
-  [COLOR_CYAN]    = {0, 16, 16},
-  [COLOR_MAGENTA] = {16, 0, 16},
+  [COLOR_BLACK]   = {0, 0, 0,0},
+  [COLOR_WHITE]   = {16, 16, 16,0},
+  [COLOR_RED]     = {16, 0, 0,0},  
+  [COLOR_GREEN]   = {0, 16, 0,0},
+  [COLOR_BLUE]    = {0, 0, 16,0},
+  [COLOR_YELLOW]  = {16, 16, 0,0},
+  [COLOR_CYAN]    = {0, 16, 16,0},
+  [COLOR_MAGENTA] = {16, 0, 16,0},
 };
 
-static color_t rgb_data[NEO_DEV_COUNT][MAX_LED_PER_DEV];
-static nrf_pwm_values_individual_t sequence_data[NEO_DEV_COUNT][MAX_LED_PER_DEV * BITS_PER_LED];
-static nrf_pwm_sequence_t pwm_sequences[NEO_DEV_COUNT];
-
-
+// PWM configuration
 static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(0);
+
+// contains one rgbw value for every led for every device
+static color_t rgb_data[NEO_DEV_COUNT][MAX_LED_PER_DEV];
+
+// individual sequence that contains duty cycle values for all LEDs
+// each entry has one value for each channel
+static nrf_pwm_values_individual_t combined_sequence[MAX_BITS];
+
+// Sequence structure for configuring DMA
+static nrf_pwm_sequence_t pwm_sequence = {
+  .values.p_individual = combined_sequence,
+  .length = 0,
+  .repeats = 0,
+  .end_delay = 0,
+};
+
+void print_combined_sequence(int length); 
 
 void neopixel_init(void) {
   nrfx_pwm_config_t config = {
     .output_pins = {
-      NEOPIXEL_PINS[NEO_RING],  // Mapped to PWM channel 0
-      NEOPIXEL_PINS[NEO_JEWEL], // Mapped to PWM channel 1
-      NEOPIXEL_PINS[NEO_STICK], // Mapped to PWM channel 2
+      NEOPIXEL_PINS[NEO_RING],  
+      NEOPIXEL_PINS[NEO_JEWEL], 
+      NEOPIXEL_PINS[NEO_STICK], 
       NRFX_PWM_PIN_NOT_USED
     },
     .irq_priority = NRFX_PWM_DEFAULT_CONFIG_IRQ_PRIORITY,
@@ -64,103 +85,115 @@ void neopixel_init(void) {
     .step_mode    = NRF_PWM_STEP_AUTO
   };
   nrfx_pwm_init(&PWM_INST, &config, NULL); 
-
-  for (int device_idx = 0; device_idx < NEO_DEV_COUNT; device_idx++) {
-    pwm_sequences[device_idx].values.p_individual = sequence_data[device_idx];
-    pwm_sequences[device_idx].length              = (uint16_t)(LED_COUNT[device_idx] * BITS_PER_LED);
-    pwm_sequences[device_idx].repeats             = 0;
-    pwm_sequences[device_idx].end_delay           = 0;
-  }
 }
 
-// === Pixel Logic === //
-
-void neopixel_set_rgb(neopixel_device_t device, uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
+void neopixel_set_rgbw(neopixel_device_t device, uint8_t index, uint8_t r, uint8_t g, uint8_t b, uint8_t w) {
   if (device < NEO_DEV_COUNT && index < LED_COUNT[device]) {
     rgb_data[device][index].r = r;
     rgb_data[device][index].g = g;
     rgb_data[device][index].b = b;
+    rgb_data[device][index].w = w;
+    //printf("[neopixel_set_rgb] device=%d, index=%d, r=%d, g=%d, b=%d\n", device, index, r, g, b);
   }
 }
 
-// Prepares the PWM sequence data for a specific Neopixel device
+// Helper function: prepare sequence data for all channels combined (as required in individual mode)
 static void prepare_sequence_data(neopixel_device_t device) {
-  uint16_t current_pwm_idx = 0;
-  for (uint8_t led_idx = 0; led_idx < LED_COUNT[device]; led_idx++) {
-    uint8_t g_val = rgb_data[device][led_idx].g;
-    uint8_t r_val = rgb_data[device][led_idx].r;
-    uint8_t b_val = rgb_data[device][led_idx].b;
+  int led_count = LED_COUNT[device];
+  uint16_t pwm_idx = 0;
 
-    uint32_t grb_color = ((uint32_t)g_val << 16) | ((uint32_t)r_val << 8) | (uint32_t)b_val;
+  for (int led = 0; led < led_count; led++) {
+      uint8_t rgbw_data_seq[4] = { rgb_data[device][led].g, rgb_data[device][led].r, rgb_data[device][led].b , rgb_data[device][led].w};
+      for (int c = 0; c < 4; c++) {
 
-    // Iterate through each of the 24 bits (MSB first)
-    for (int bit_pos = BITS_PER_LED - 1; bit_pos >= 0; bit_pos--) {
-      // Determine if the current bit is a '1' or '0'
-      uint16_t pwm_val_for_bit = ((grb_color >> bit_pos) & 0x01) ? ZERO_HIGH : ONE_HIGH;
+        // Skip white value if neopixel device is not jewel
+        if (c == 3 && device != NEO_JEWEL) break; 
 
-      sequence_data[device][current_pwm_idx].channel_0 = 0;
-      sequence_data[device][current_pwm_idx].channel_1 = 0;
-      sequence_data[device][current_pwm_idx].channel_2 = 0;
-      sequence_data[device][current_pwm_idx].channel_3 = 0; // Not used, but good practice to init
-
-      switch (device) {
-        case NEO_RING:  // NEO_RING is connected to output_pins[0] (PWM Channel 0)
-          sequence_data[device][current_pwm_idx].channel_0 = pwm_val_for_bit;
-          break;
-        case NEO_JEWEL: // NEO_JEWEL is connected to output_pins[1] (PWM Channel 1)
-          sequence_data[device][current_pwm_idx].channel_1 = pwm_val_for_bit;
-          break;
-        case NEO_STICK: // NEO_STICK is connected to output_pins[2] (PWM Channel 2)
-          sequence_data[device][current_pwm_idx].channel_2 = pwm_val_for_bit;
-          break;
+        for (int bit = 7; bit >= 0; bit--) {
+          // Clear values for all channels to avoid ghost colors
+          combined_sequence[pwm_idx].channel_0 = 0;
+          combined_sequence[pwm_idx].channel_1 = 0;
+          combined_sequence[pwm_idx].channel_2 = 0;
+          combined_sequence[pwm_idx].channel_3 = 0;
+          uint16_t pwm_val = ((rgbw_data_seq[c]>> bit) & 0x1) ? ZERO_HIGH : ONE_HIGH;
+          switch (device) {
+            case NEO_RING:  
+              combined_sequence[pwm_idx].channel_0 = pwm_val; 
+              break;
+            case NEO_JEWEL: 
+              combined_sequence[pwm_idx].channel_1 = pwm_val; 
+              break;
+            case NEO_STICK: 
+              combined_sequence[pwm_idx].channel_2 = pwm_val; 
+              break;
+          }
+          pwm_idx++;
+        }
       }
-      current_pwm_idx++;
-    }
+  }
+  // Clear rest of buffer bc otherwise ghost colors appear
+  for (; pwm_idx < MAX_BITS; pwm_idx++) {
+    combined_sequence[pwm_idx].channel_0 = 0;
+    combined_sequence[pwm_idx].channel_1 = 0;
+    combined_sequence[pwm_idx].channel_2 = 0;
+    combined_sequence[pwm_idx].channel_3 = 0;
   }
 }
 
 void neopixel_show(neopixel_device_t device) {
   prepare_sequence_data(device);
-
-  nrfx_err_t err = nrfx_pwm_simple_playback(&PWM_INST, &pwm_sequences[device], 1, NRFX_PWM_FLAG_STOP);
+  pwm_sequence.length = BITS_PER_DEVICE(device) * 4;
+  nrfx_pwm_simple_playback(&PWM_INST, &pwm_sequence, 1, NRFX_PWM_FLAG_STOP);
   
-  if (err == NRFX_SUCCESS) {
-    // Wait for the PWM sequence to complete by polling the STOPPED event
-    while (!nrf_pwm_event_check(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED)) {
-        // Could add __WFE(); for power saving if interrupts are configured for other things
-    }
-    nrf_pwm_event_clear(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED);
-  } else {
-    // Handle error (e.g., NRF_LOG_ERROR("PWM playback failed: %d", err); if logging is set up)
-  }
+  while (!nrf_pwm_event_check(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED));
+  nrf_pwm_event_clear(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED);
 
   nrf_delay_us(RESET_DELAY_US);
 }
 
 void neopixel_set_color(neopixel_device_t device, uint8_t led_index, color_name_t color_name) {
   if (device < NEO_DEV_COUNT && led_index < LED_COUNT[device] && color_name < COLOR_COUNT) {
-    // Look up RGB values from the COLOR_TABLE using the color_name enum
-    color_t c = COLOR_TABLE[color_name]; // This uses the const COLOR_TABLE defined in this .c file
-    neopixel_set_rgb(device, led_index, c.r, c.g, c.b);
+    color_t c = COLOR_TABLE[color_name];
+    neopixel_set_rgbw(device, led_index, c.r, c.g, c.b,c.w);
   }
+  //printf("[neopixel_set_color] device=%d, led_index=%d, color_name=%d\n", device, led_index, color_name);
+  neopixel_show(device);
 }
 
 void neopixel_set_color_all(neopixel_device_t device, color_name_t color_name) {
   if (device < NEO_DEV_COUNT && color_name < COLOR_COUNT) {
-    for (int i = 0; i < LED_COUNT[device]; i++) {
+    int led_count = LED_COUNT[device];
+    for (int i = 0; i < led_count; i++) {
       neopixel_set_color(device, i, color_name);
     }
   }
+  neopixel_show(device);
 }
 
 void neopixel_clear(neopixel_device_t device, uint8_t led_index) {
    if (device < NEO_DEV_COUNT && led_index < LED_COUNT[device]) {
      neopixel_set_color(device, led_index, COLOR_BLACK);
    }
+  neopixel_show(device);
 }
 
 void neopixel_clear_all(neopixel_device_t device) {
   if (device < NEO_DEV_COUNT) {
     neopixel_set_color_all(device, COLOR_BLACK);
   }
+  neopixel_show(device);
+}
+
+// Helper function to print the contents of the combined_sequence buffer
+void print_combined_sequence(int length) {
+    printf("Combined sequence contents (length=%d):\n", length);
+    for (int i = 0; i < length; i++) {
+        printf("[%3d] ch0=%2d ch1=%2d ch2=%2d ch3=%2d\n",
+            i,
+            combined_sequence[i].channel_0,
+            combined_sequence[i].channel_1,
+            combined_sequence[i].channel_2,
+            combined_sequence[i].channel_3
+        );
+    }
 }

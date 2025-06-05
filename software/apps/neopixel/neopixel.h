@@ -6,6 +6,7 @@ typedef struct {
   uint8_t r;
   uint8_t g;
   uint8_t b;
+  uint8_t w; 
 } color_t;
 
 typedef enum {
@@ -34,3 +35,5 @@ void neopixel_set_color_all(neopixel_device_t device, color_name_t color_name);
 void neopixel_clear(neopixel_device_t device, uint8_t led_index);
 void neopixel_clear_all(neopixel_device_t device);
 void neopixel_show(neopixel_device_t device);
+
+void print_combined_sequence(int length);
