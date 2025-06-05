@@ -37,7 +37,7 @@ int main(void) {
     app_timer_init();
 
     // Initialize timer module
-    uint32_t game_length = 10; 
+    uint32_t game_length = 5*60; 
     seg7_init(&twi_mngr_instance, game_length, debug); 
 
     // Initialize switch puzzle
@@ -97,7 +97,7 @@ int main(void) {
             morse_puzzle_stop();
             switch_puzzle_continue(NULL); 
         }
-
+        
         // Game successfully completed
         if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete()) {
             if (debug) printf("Game successfully completed!\n"); 

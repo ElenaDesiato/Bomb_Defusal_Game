@@ -105,13 +105,13 @@ void switch_puzzle_start(void) {
 
 void switch_puzzle_continue(void* _unused) {    
     update_switch_status();
-    update_neopixel_ring();
     if (switch_puzzle_is_complete()){
         neopixel_set_color_all(COLOR_GREEN);
         if (debug) printf("Switch puzzle: Success!.\n");
         switch_puzzle_stop();
     }
     else {
+        update_neopixel_ring();
         app_timer_start(loop_timer, APP_TIMER_TICKS(10), NULL);
     }
 }
