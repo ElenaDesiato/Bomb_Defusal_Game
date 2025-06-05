@@ -17,12 +17,12 @@
 #define SEG7_COLON_BIT            (1 << 4) // Bit 4 for Colon (0b00010000 or 0x10)
 #define SEG7_NO_DECIMALS_COLON    0x00     // To turn off all decimals/colon
 
-#define SEG7_UPDATE_INTERVAL  APP_TIMER_TICKS(1000)
+#define SEG7_UPDATE_INTERVAL  APP_TIMER_TICKS(1000) // APP_TIMER_TICKS: ms -> ticks
 
 APP_TIMER_DEF(seg7_timer);
 
 static const nrf_twi_mngr_t* twi_mngr = NULL;
-static volatile uint32_t countdown = 300; //defaule 5 min
+static volatile uint32_t countdown = 300; //default 5 min
 static volatile bool colon_blink = true;
 static bool debug = true;
 static bool blink_mode = true;
@@ -33,7 +33,7 @@ static void i2c_write(uint8_t cmd, uint8_t data) {
     uint8_t cmd_buf[2] = {cmd, data};
     nrf_twi_mngr_transfer_t xfer = NRF_TWI_MNGR_WRITE(SEG7_I2C_ADDR, cmd_buf, sizeof(cmd_buf), 0);
     nrf_twi_mngr_perform(twi_mngr, NULL, &xfer, 1, NULL);
-    nrf_delay_ms(2); // Small delay after cmd
+    //nrf_delay_ms(2); // Small delay after cmd
 }
 
 // Helper function to send a single byte cmd
@@ -41,13 +41,12 @@ static void i2c_send_cmd(uint8_t cmd) {
     if (!twi_mngr) return;
     nrf_twi_mngr_transfer_t xfer = NRF_TWI_MNGR_WRITE(SEG7_I2C_ADDR, &cmd, 1, 0);
     nrf_twi_mngr_perform(twi_mngr, NULL, &xfer, 1, NULL);
-    nrf_delay_ms(2); // Small delay after cmd
+    //nrf_delay_ms(2); // Small delay after cmd
 }
 
 // Consolidated function to update display digits and colon
 static void seg7_update_display(uint32_t total_sec, bool show_colon) {
     if (!twi_mngr) return;
-    i2c_send_cmd(SEG7_CMD_CLEAR_DISPLAY);
 
     // 2. Set Colon State
     if (show_colon) {
@@ -85,16 +84,15 @@ static void seg7_timer_handler(void* context) {
     seg7_update_display(countdown, curr_colon_state);
 }
 
-void seg7_init(const nrf_twi_mngr_t* i2c, int countdown_sec, bool debug_mode) {
+void seg7_init(const nrf_twi_mngr_t* i2c, uint32_t start_val, bool debug_mode) {
     twi_mngr = i2c;
     debug = debug_mode;
-    countdown = countdown_sec;
-    // send clear command to reset cursor
+    countdown = start_val;
+    // send clear command to reset display
     i2c_send_cmd(SEG7_CMD_CLEAR_DISPLAY);
 
-    // Initialize & start timer for countdown
-    APP_ERROR_CHECK(app_timer_create(&seg7_timer, APP_TIMER_MODE_REPEATED, seg7_timer_handler));
-    APP_ERROR_CHECK(app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL));
+    // Initialize timer for countdown 
+    app_timer_create(&seg7_timer, APP_TIMER_MODE_REPEATED, seg7_timer_handler);
 
     colon_blink = true;
     seg7_update_display(countdown, colon_blink);
@@ -106,8 +104,16 @@ void seg7_set_countdown(uint32_t sec) {
     colon_blink = true;
     seg7_update_display(countdown, colon_blink);
     if (sec > 0 || SEG7_UPDATE_INTERVAL > 0) {
-         APP_ERROR_CHECK(app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL));
+        app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL);
     }
+}
+
+void seg7_start_timer(void) {
+    app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL); 
+}
+
+void seg7_stop_timer(void) {
+    app_timer_stop(seg7_timer); 
 }
 
 void seg7_add_sec(uint32_t delta) {
@@ -115,7 +121,7 @@ void seg7_add_sec(uint32_t delta) {
     countdown += delta;
     colon_blink = true;
     seg7_update_display(countdown, colon_blink);
-    APP_ERROR_CHECK(app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL));
+    app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL);
 }
 
 void seg7_sub_sec(uint32_t delta) {
@@ -127,18 +133,17 @@ void seg7_sub_sec(uint32_t delta) {
     }
     colon_blink = true;
     seg7_update_display(countdown, colon_blink);
-    if (countdown > 0 || SEG7_UPDATE_INTERVAL > 0) {
-        APP_ERROR_CHECK(app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL));
-    } else if (countdown == 0) {
-        seg7_update_display(countdown, true); // Force colon on for 00:00
-    }
+    if (countdown == 0) {
+        seg7_update_display(countdown,true);
+    } else { 
+        app_timer_start(seg7_timer, SEG7_UPDATE_INTERVAL, NULL);
+    } 
 }
 
 uint32_t seg7_get_countdown(void) {
     return countdown;
 }
 
-bool time_runs_out(void) {
-    if (countdown == 0) {return true;}
-    return false;
+bool time_ran_out(void) {
+    return countdown == 0; 
 }

@@ -23,13 +23,23 @@ int main(void) {
     nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
     
     app_timer_init();
-    seg7_init(&twi_mngr_instance, 300, debug);
+    seg7_init(&twi_mngr_instance, 20, debug);
+    nrf_delay_ms(3000); 
 
+    int it = 0;
+    seg7_sub_sec(5);
     while(1) {
-        if (time_runs_out()) {
+        printf("Countdown: %d\n", seg7_get_countdown()); 
+        if (time_ran_out()) {
             printf("\nBOOM\n");
             break;
         }
+        if (seg7_get_countdown() == 5) {
+            seg7_stop_timer();
+            nrf_delay_ms(2000);
+            seg7_start_timer();
+        }
         nrf_delay_ms(1000);
+        it++;
     }
 }
