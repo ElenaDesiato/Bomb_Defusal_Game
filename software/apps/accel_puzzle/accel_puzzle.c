@@ -8,6 +8,7 @@
 #include <math.h>
 #include "nrf_log.h"
 #include "app_error.h"
+#include "../neopixel/neopixel.h"
 
 #include "nrf_delay.h"
 #include "nrf_twi_mngr.h"
@@ -23,6 +24,8 @@
 #define DEBUG_PRINT_INTERVAL_MS 1000 // used for the sophisticated debug print
 
 APP_TIMER_DEF(ACCEL_CHECK_TIMER);
+APP_TIMER_DEF(HOLD_FEEDBACK_TIMER); 
+APP_TIMER_DEF(HOLD_FAIL_TIMER); // for flashing red on NEOstick
 
 static uint8_t sx1509_i2c_addr = 0;
 static accel_puzzle_pins_t* puzzle_pins = NULL;
@@ -44,6 +47,26 @@ static uint32_t last_debug_print_ticks = 0;
 static accel_puzzle_instruction_t defined_instructions[MAX_INSTRUCTIONS];
 static int current_step = 0;
 static int steps_done = 0; // aka number of instructions completed
+
+static uint8_t hold_led_index = 0;
+
+static void hold_feedback_handler(void *unused) {
+    if (hold_led_index < 8) {
+        neopixel_set_color(NEO_STICK, hold_led_index, COLOR_GREEN);
+        hold_led_index++;
+    } else {
+        // All LEDs lit, stop timer
+        app_timer_stop(HOLD_FEEDBACK_TIMER);
+        neopixel_clear_all(NEO_STICK);
+        hold_led_index = 0; // Reset for next use
+    }
+}
+
+void hold_fail_handler(void *unused) {
+    app_timer_stop(HOLD_FAIL_TIMER);
+    hold_led_index = 0;
+    neopixel_clear_all(NEO_STICK);
+}
 
 static void setup_instructions() {
   defined_instructions[0] = (accel_puzzle_instruction_t){.pitch = 45, .roll = 0};
@@ -85,6 +108,7 @@ static void start_hold_timer() {
     pose_is_held = true;
     hold_timer_running = true;
     app_timer_start(ACCEL_CHECK_TIMER, APP_TIMER_TICKS(CHECK_INTERVAL_MS), NULL);
+    app_timer_start(HOLD_FEEDBACK_TIMER, APP_TIMER_TICKS(250), NULL);
 }
 
 static void stop_hold_timer() {
@@ -120,6 +144,8 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
     lsm6dso_init(twi_mgr_instance);
 
     app_timer_create(&ACCEL_CHECK_TIMER, APP_TIMER_MODE_REPEATED, hold_check_handler);
+    app_timer_create(&HOLD_FEEDBACK_TIMER, APP_TIMER_MODE_REPEATED, hold_feedback_handler);
+    app_timer_create(&HOLD_FAIL_TIMER, APP_TIMER_MODE_SINGLE_SHOT, hold_fail_handler);
     setup_instructions();
     puzzle_initialized = true;
     if (debug) printf("ACCEL: Puzzle module initialized.\n");
@@ -142,9 +168,13 @@ void accel_puzzle_stop(void) {
     puzzle_active = false;
     stop_hold_timer();
     reset_step();
+    app_timer_stop(HOLD_FEEDBACK_TIMER);
+    app_timer_stop(HOLD_FAIL_TIMER);
+    neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
 
     if (!puzzle_complete) {
-        // TODO
+        neopixel_clear_all(NEO_STICK);
+        hold_led_index = 0;
     }
 }
 
@@ -203,7 +233,7 @@ void accel_puzzle_continue(void* _unused) {
         // check if pitch & roll angles hold
         if (is_angle_in_tolerance(live_pitch, target.pitch) && is_angle_in_tolerance(live_roll, target.roll)) {
             if (debug) printf("\n");
-            DFR0760_say("Hold it.");
+            //DFR0760_say("Hold it.");
             start_hold_timer();
             hold_start_ticks = app_timer_cnt_get();  // record the start time of the hold
             timing_hold = true;
@@ -215,7 +245,10 @@ void accel_puzzle_continue(void* _unused) {
     if (timing_hold) {
         if (!pose_is_held) {
             if (debug) printf("\n");
-            DFR0760_say("Try again.");
+            //DFR0760_say("Try again.");
+            app_timer_stop(HOLD_FEEDBACK_TIMER);
+            app_timer_start(HOLD_FAIL_TIMER, APP_TIMER_TICKS(500), NULL);
+            neopixel_set_color_all(NEO_STICK, COLOR_RED);
             reset_step();
             return;
         }

@@ -12,12 +12,14 @@ APP_HEADER_PATHS += ../lilybuzzer
 APP_HEADER_PATHS += ../keypad
 APP_HEADER_PATHS += ../DFR0760
 APP_HEADER_PATHS += ../LSM6DSO
+APP_HEADER_PATHS += ../neopixel
 APP_SOURCE_PATHS += .
 APP_SOURCE_PATHS += ../sx1509
 APP_SOURCE_PATHS += ../lilybuzzer
 APP_SOURCE_PATHS += ../keypad
 APP_SOURCE_PATHS += ../DFR0760
 APP_SOURCE_PATHS += ../LSM6DSO
+APP_SOURCE_PATHS += ../neopixel
 APP_SOURCES += $(foreach path,$(APP_SOURCE_PATHS),$(notdir $(wildcard $(path)/*.c)))
 
 # Path to base of nRF52x-base repo
