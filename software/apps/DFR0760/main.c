@@ -38,8 +38,10 @@ int main(void) {
 
     nrf_delay_ms(1000); 
 
-    DFR0760_set_volume(1); // volume 1 is still super loud wtf
-
+    DFR0760_set_volume(6); // volume 1 is still super loud wtf
+        nrf_delay_ms(500);
+    DFR0760_set_sound_type(54);
+    nrf_delay_ms(500);
     DFR0760_say("testing ");
     nrf_delay_ms(500);
 

@@ -26,7 +26,7 @@ static ret_code_t i2c_write_bytes(uint8_t i2c_addr, const uint8_t *data, size_t 
     nrf_twi_mngr_transfer_t const write_transfer = NRF_TWI_MNGR_WRITE(i2c_addr, data, length, 0);
     ret_code_t result = nrf_twi_mngr_perform(i2c_manager, NULL, &write_transfer, 1, NULL);
     if (result != NRF_SUCCESS) {
-        printf("DFR0760: I2C write failed! Error: 0x%lX\n", (unsigned long)result);
+        //printf("DFR0760: I2C write failed! Error: 0x%lX\n", (unsigned long)result);
     }
     return result;
 }
