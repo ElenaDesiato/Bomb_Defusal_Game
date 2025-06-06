@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "nrf_delay.h"
 #include "nrf_twi_mngr.h"
@@ -12,7 +13,6 @@
 #include "../keypad/keypad.h"
 
 #include "morse_puzzle.h"
-
 typedef enum {
     LED_OFF,
     LED_COLOR_WHITE,
@@ -26,11 +26,10 @@ static uint8_t sx1509_i2c_addr = 0;
 static const morse_puzzle_pins_t* pins = NULL; 
 
 static uint8_t solution_length = 0; 
-static const char* solution_str = "";
+static char solution_str[8] = ""; // support up to 7 digites + \0
 static bool is_puzzle_complete = false; 
 
 static bool debug = false; 
-
 
 // Helper functions to turn led green, red, white respectively
 static void set_LED_red() {
@@ -73,6 +72,9 @@ static bool check_sequence(const char* sol, uint8_t sol_len){
   return true; 
 }
 
+// Helper function to generate a random solution
+void morse_solution_gen(void);
+
 void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, const morse_puzzle_pins_t* puzzle_pins, bool p_debug) {
   debug = p_debug;
   sx1509_i2c_addr = i2c_addr; 
@@ -82,10 +84,9 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
 
   pins = puzzle_pins; 
   solution_length = 0; 
-  solution_str = "";
+  memset(solution_str, 0, sizeof(solution_str)); // Clear the buffer
   is_puzzle_complete = false; 
 
-  //app_timer_init(); 
   keypad_init(sx1509_i2c_addr,pins->rows, pins->cols); 
   lilybuzzer_init(pins->buzzer); 
   sx1509_pin_config_input_pullup(sx1509_i2c_addr, pins->puzzle_select);
@@ -98,13 +99,23 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
   app_timer_create(&loop_timer, APP_TIMER_MODE_SINGLE_SHOT, morse_puzzle_continue);
 }
 
-// TO DO: better way of generating a solution
 void morse_puzzle_start(void) {
   solution_length = 4; 
-  solution_str = "1234"; 
+  morse_solution_gen(); //generate a random solution
   is_puzzle_complete = false; 
   set_LED_off(); 
   keypad_clear_input_record();
+}
+
+
+void morse_solution_gen(void) {
+  if (debug) printf("MORSE: Solution generated: ");
+  for (uint8_t i = 0; i < solution_length; i++) {
+    solution_str[i] = '0' + (rand() % 10); // digits 0-9
+    if (debug) printf("%c", solution_str[i]);
+  }
+  if (debug) printf("\n");
+  solution_str[solution_length] = '\0'; 
 }
 
 void morse_puzzle_continue(void* _unused) {
