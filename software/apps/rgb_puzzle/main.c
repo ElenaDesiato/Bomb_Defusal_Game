@@ -1,56 +1,73 @@
-// main.c (Example Adaptation)
-#include "microbit_v2.h"
-#include "nrf_delay.h"
-#include "app_timer.h"    // For app_timer_init
-#include "app_error.h"  // For APP_ERROR_CHECK
-#include "sx1509.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
+#include "nrf.h"
+#include "nrf_delay.h"
+#include "app_timer.h"
+#include "nrf_twi_mngr.h"
+
+#include "microbit_v2.h"
+#include "sx1509.h"
 #include "rgb_puzzle.h"
+#include "../neopixel/neopixel.h"
+
+// I2C Manager instance
+NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
+
+// I2C Configuration
+static const nrf_drv_twi_config_t i2c_config = {
+    .scl = EDGE_P19,
+    .sda = EDGE_P20,
+    .frequency = NRF_DRV_TWI_FREQ_100K,
+    .interrupt_priority = 0,
+    .clear_bus_init = false
+};
+
+// GPIO Expander Address
+static const uint8_t gpio_i2c_addr0 = SX1509_ADDR_00; 
+static const uint8_t gpio_i2c_addr1 = SX1509_ADDR_10; 
+
 
 int main(void) {
 
-    printf("broad start...\n");
-  
-    ret_code_t err_code;
-
-    // Initialize app_timer module (once)
-    err_code = app_timer_init();
-    APP_ERROR_CHECK(err_code);
-    printf("RGB Puzzle Game Starting...\n");
-
+  printf("broad start...\n");
   // Define puzzle pins
-  rgb_puzzle_pins_t pins = {
-    .red_button = 0,
-    .yellow_button = 1,
-    .green_button = 2,
+  rgb_puzzle_pins_t rgb_puzzle_pins = {
+    .red_button = 1,
+    .yellow_button = 2,
+    .green_button = 4,
     .blue_button = 3,
-    .puzzle_select = 4, 
-    .neopixel_jewel = EDGE_P11
+    .puzzle_select = 0, 
+    .neopixel_jewel = EDGE_P2
   };
-  bool debug_mode = true;
 
-  // Initialize the RGB Puzzle module
-  // SX1509_ADDR_00 should be defined in sx1509.h or elsewhere
-  rgb_puzzle_init(SX1509_ADDR_00, &pins, debug_mode);
+  bool debug = true;
 
-  // Start the puzzle sequence
+  app_timer_init();
+  nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
+  DFR0760_init(&twi_mngr_instance);
+  DFR0760_set_volume(4);
+  sx1509_init(gpio_i2c_addr0, &twi_mngr_instance); 
+  sx1509_init(gpio_i2c_addr1, &twi_mngr_instance); 
+
+  neopixel_init(); 
+  neopixel_clear_all(NEO_RING);
+  neopixel_clear_all(NEO_JEWEL);
+  neopixel_clear_all(NEO_STICK);
+
+  rgb_puzzle_init(SX1509_ADDR_00, &rgb_puzzle_pins, debug);
   rgb_puzzle_start();
 
   while (1) {
-    rgb_puzzle_process_state(); // the FSM machine for RGB puzzle
-
-    if (rgb_puzzle_is_complete()) {
-        printf("Main: RGB puzzle fully complete!\n");
-
-        nrf_delay_ms(3000);
-        printf("Main: Restarting puzzle...\n");
-        rgb_puzzle_start(); // Start a new game
-
-    } else if (!rgb_puzzle_is_active() && current_puzzle_state == PUZZLE_STATE_IDLE) {
-        // This condition means the puzzle was ended (e.g. by select button) or completed and went to IDLE
-        // And rgb_puzzle_start() hasn't been called again yet for a new game.
+    if (is_rgb_puzzle_complete()) {
+      if (debug) printf("ACCEL: Puzzle complete.\n");
+      break;
     }
 
-    nrf_delay_ms(20); // Adjust delay as needed for responsiveness vs power saving
+    if (!is_rgb_puzzle_complete() && !sx1509_pin_read(gpio_i2c_addr0, rgb_puzzle_pins.puzzle_select)) {
+      rgb_puzzle_continue(NULL);
+    }
   }
+    nrf_delay_ms(100); 
 }
