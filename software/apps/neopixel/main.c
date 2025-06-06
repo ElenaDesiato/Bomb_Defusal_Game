@@ -9,9 +9,15 @@
 #include "neopixel.h"
 #include "nrf_delay.h"
 
+static const neopixel_pins_t neopixel_pins = {
+  .ring = EDGE_P9,
+  .jewel = EDGE_P2,
+  .stick = EDGE_P1,
+};
+
 int main(void) {
   printf("Board started!\n");
-  neopixel_init();  
+  neopixel_init(&neopixel_pins,false);  
   neopixel_clear_all(NEO_RING);
   neopixel_clear_all(NEO_JEWEL);
   neopixel_clear_all(NEO_STICK);

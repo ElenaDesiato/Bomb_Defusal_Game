@@ -5,7 +5,6 @@
 typedef struct {
     uint8_t switches[NUM_SWITCHES];     
     uint8_t puzzle_select;
-    uint8_t neopixel;
 } switch_puzzle_pins_t; 
 
 // Initialize puzzle. Only call once.

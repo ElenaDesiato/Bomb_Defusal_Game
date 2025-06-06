@@ -8,7 +8,7 @@
 #include "app_timer.h"
 #include "nrf_delay.h"
 #include "microbit_v2.h"
-#include "../neopixel_ring/neopixel_ring.h"
+#include "../neopixel/neopixel.h"
 #include "rng.h"
 
 #include "switch_puzzle.h"
@@ -67,9 +67,9 @@ static void update_switch_status() {
 static void update_neopixel_ring() {   
     for(int i = 0; i < 16; i++) {
         if ((sum >> i) & 1) {
-            neopixel_set_color(i, COLOR_RED);
+            neopixel_set_color(NEO_RING, i, COLOR_RED);
         } else {
-            neopixel_clear(i);
+            neopixel_clear(NEO_RING,i);
         }
     }
 }
@@ -84,7 +84,7 @@ void switch_puzzle_init(const switch_puzzle_pins_t* pins, bool p_debug) {
     for (int i = 0; i < NUM_SWITCHES; i++) {
         switch_pins[i] = pins->switches[i];
     }
-    neopixel_ring_init(pins->neopixel);  
+    //neopixel_ring_init(pins->neopixel);  
     nrf_gpio_cfg_input(select_pin, NRF_GPIO_PIN_PULLUP);
     for (int i = 0; i < NUM_SWITCHES; i++) {
         nrf_gpio_cfg_input(switch_pins[i], NRF_GPIO_PIN_NOPULL);
@@ -106,7 +106,7 @@ void switch_puzzle_start(void) {
 void switch_puzzle_continue(void* _unused) {    
     update_switch_status();
     if (switch_puzzle_is_complete()){
-        neopixel_set_color_all(COLOR_GREEN);
+        neopixel_set_color_all(NEO_RING,COLOR_GREEN);
         if (debug) printf("Switch puzzle: Success!.\n");
         switch_puzzle_stop();
     }
@@ -119,6 +119,6 @@ void switch_puzzle_continue(void* _unused) {
 
 void switch_puzzle_stop(void) {
     app_timer_stop(loop_timer);
-    if (!switch_puzzle_is_complete()) neopixel_clear_all();
+    if (!switch_puzzle_is_complete()) neopixel_clear_all(NEO_RING);
 }
 

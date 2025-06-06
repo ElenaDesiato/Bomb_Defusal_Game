@@ -31,12 +31,7 @@ static const uint8_t LED_COUNT[NEO_DEV_COUNT] = {
   [NEO_STICK] = 8,
 };
 
-// These map to PWM channels 0, 1, 2 respectively due to .output_pins order in nrfx_pwm_config_t
-static const uint32_t NEOPIXEL_PINS[NEO_DEV_COUNT] = {
-  [NEO_RING]  = EDGE_P9,
-  [NEO_JEWEL] = EDGE_P2,
-  [NEO_STICK] = EDGE_P1,
-};
+static const neopixel_pins_t* pins = NULL; 
 
 const color_t COLOR_TABLE[COLOR_COUNT] = {
   [COLOR_BLACK]   = {0, 0, 0,0},
@@ -67,14 +62,18 @@ static nrf_pwm_sequence_t pwm_sequence = {
   .end_delay = 0,
 };
 
+static bool debug = false; 
+
 void print_combined_sequence(int length); 
 
-void neopixel_init(void) {
+void neopixel_init(const neopixel_pins_t* pins_param, bool debug_param) {
+  debug = debug_param; 
+  pins = pins_param; 
   nrfx_pwm_config_t config = {
     .output_pins = {
-      NEOPIXEL_PINS[NEO_RING],  
-      NEOPIXEL_PINS[NEO_JEWEL], 
-      NEOPIXEL_PINS[NEO_STICK], 
+      pins->ring,
+      pins->jewel, 
+      pins->stick,
       NRFX_PWM_PIN_NOT_USED
     },
     .irq_priority = NRFX_PWM_DEFAULT_CONFIG_IRQ_PRIORITY,
@@ -93,7 +92,6 @@ void neopixel_set_rgbw(neopixel_device_t device, uint8_t index, uint8_t r, uint8
     rgb_data[device][index].g = g;
     rgb_data[device][index].b = b;
     rgb_data[device][index].w = w;
-    //printf("[neopixel_set_rgb] device=%d, index=%d, r=%d, g=%d, b=%d\n", device, index, r, g, b);
   }
 }
 
@@ -140,7 +138,7 @@ static void prepare_sequence_data(neopixel_device_t device) {
   }
 }
 
-void neopixel_show(neopixel_device_t device) {
+static void neopixel_show(neopixel_device_t device) {
   prepare_sequence_data(device);
   pwm_sequence.length = BITS_PER_DEVICE(device) * 4;
   nrfx_pwm_simple_playback(&PWM_INST, &pwm_sequence, 1, NRFX_PWM_FLAG_STOP);

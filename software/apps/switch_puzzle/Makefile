@@ -7,9 +7,9 @@ SOFTDEVICE_MODEL = blank
 
 # Source and header files
 APP_HEADER_PATHS += .
-APP_HEADER_PATHS += ../neopixel_ring
+APP_HEADER_PATHS += ../neopixel
 APP_SOURCE_PATHS += .
-APP_SOURCE_PATHS += ../neopixel_ring
+APP_SOURCE_PATHS += ../neopixel
 APP_SOURCES += $(foreach path,$(APP_SOURCE_PATHS),$(notdir $(wildcard $(path)/*.c)))
 
 # Path to base of nRF52x-base repo
