@@ -9,9 +9,11 @@
 
 #include "../switch_puzzle/switch_puzzle.h"
 #include "../morse_puzzle/morse_puzzle.h"
+#include "../accel_puzzle/accel_puzzle.h"
 #include "../sx1509/sx1509.h"
 #include "../DFR0760/DFR0760.h"
 #include "../seg7/seg7.h"
+#include "../neopixel/neopixel.h"
 
 static bool debug = true; 
 
@@ -36,7 +38,6 @@ static const switch_puzzle_pins_t switch_puzzle_pins = {
     // All on breakout
     .switches = {EDGE_P3, EDGE_P4, EDGE_P5, EDGE_P6, EDGE_P7},
     .puzzle_select = EDGE_P14,
-    .neopixel = EDGE_P9,
 };
 
 static const morse_puzzle_pins_t morse_puzzle_pins = {
@@ -48,6 +49,17 @@ static const morse_puzzle_pins_t morse_puzzle_pins = {
     .led_b = 13,
     .led_r = 14,
     .buzzer = EDGE_P13 // on breakout
+};
+
+static const neopixel_pins_t neopixel_pins = {
+  .ring = EDGE_P9,
+  .jewel = EDGE_P2,
+  .stick = EDGE_P1,
+};
+
+static const accel_puzzle_pins_t accel_puzzle_pins = {
+    .puzzle_select = 7,         // Pin 7 on addr0
+    .neopixel_stick = EDGE_P1 
 };
 
 #define START_BUTTON_PIN 8 // on 10 gpio expander
@@ -66,6 +78,10 @@ static void handle_out_of_time(bool *is_game_running) {
     if (debug) printf("Time ran out.\n"); 
     *is_game_running = false; 
     seg7_stop_timer(); 
+    neopixel_set_color_all(NEO_RING, COLOR_RED);
+    neopixel_set_color_all(NEO_STICK, COLOR_RED);
+    neopixel_set_color_all(NEO_JEWEL, COLOR_RED);
+    morse_set_LED_red();
     DFR0760_say("Boom"); 
 }
 
@@ -73,6 +89,10 @@ static void complete_game(bool *is_game_running) {
     if (debug) printf("Game successfully completed!\n"); 
     *is_game_running = false; 
     seg7_stop_timer(); 
+    neopixel_set_color_all(NEO_RING, COLOR_GREEN);
+    neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
+    neopixel_set_color_all(NEO_JEWEL, COLOR_GREEN);
+    morse_set_LED_green();
     DFR0760_say("Congratulations"); 
 }
 
@@ -89,6 +109,9 @@ int main(void) {
     sx1509_init(gpio_i2c_addr0, &twi_mngr_instance); 
     sx1509_init(gpio_i2c_addr1, &twi_mngr_instance); 
 
+    // Initialize neopixel separately as it is used in multiple puzzles
+    neopixel_init(&neopixel_pins, debug);
+
     // Initialize timer module
     seg7_init(&twi_mngr_instance, GAME_LENGTH_SEC, debug); 
 
@@ -97,6 +120,9 @@ int main(void) {
 
     // Initialize morse code puzzle
     morse_puzzle_init(gpio_i2c_addr1,&twi_mngr_instance,&morse_puzzle_pins, debug); 
+
+    // Initialize accelerometer puzzle
+    accel_puzzle_init(gpio_i2c_addr0, &twi_mngr_instance,&accel_puzzle_pins, debug); 
 
     // Configure main button 
     sx1509_pin_config_input_pullup(gpio_i2c_addr1, START_BUTTON_PIN); 
@@ -118,6 +144,7 @@ int main(void) {
         if(is_game_running && !morse_puzzle_is_complete() && !sx1509_pin_read(gpio_i2c_addr1,morse_puzzle_pins.puzzle_select)) {
             if (debug) printf("Morse puzzle started \n");
             switch_puzzle_stop();
+            accel_puzzle_stop();
             morse_puzzle_continue(NULL); 
         }
 
@@ -125,16 +152,25 @@ int main(void) {
         if(is_game_running && !switch_puzzle_is_complete() && !nrf_gpio_pin_read(switch_puzzle_pins.puzzle_select)){
             if (debug) printf("Switch puzzle started \n"); 
             morse_puzzle_stop();
+            accel_puzzle_stop();
             switch_puzzle_continue(NULL); 
         }
-        
+
+        // Accelerometer Puzzle
+        if(is_game_running && !accel_puzzle_is_complete() && !sx1509_pin_read(gpio_i2c_addr0,accel_puzzle_pins.puzzle_select)){
+            if (debug) printf("Accelerometer puzzle started \n"); 
+            morse_puzzle_stop();
+            switch_puzzle_stop();
+            accel_puzzle_continue(NULL); 
+        }
+
         // Game successfully completed
-        if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete()) {
+        if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete() && accel_puzzle_is_complete()) {
             complete_game(&is_game_running); 
         }
 
         // Timer ran out 
-        if (is_game_running && time_ran_out() && !morse_puzzle_is_complete() && !switch_puzzle_is_complete()) {
+        if (is_game_running && time_ran_out() && !morse_puzzle_is_complete() && !switch_puzzle_is_complete() && !accel_puzzle_is_complete()) {
             handle_out_of_time(&is_game_running);
         }
         nrf_delay_ms(100); 

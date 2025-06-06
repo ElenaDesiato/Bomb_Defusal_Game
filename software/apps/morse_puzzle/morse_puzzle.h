@@ -28,3 +28,9 @@ void morse_puzzle_stop(void);
 
 // Returns true iff puzzle has been successfully completed.
 bool morse_puzzle_is_complete(void);
+
+// Change color of puzzle LED
+void morse_set_LED_green(void);
+void morse_set_LED_red(void);
+void morse_set_LED_white(void);
+void morse_set_LED_off(void);
