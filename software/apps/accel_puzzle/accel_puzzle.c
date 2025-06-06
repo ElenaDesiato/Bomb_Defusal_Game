@@ -23,6 +23,7 @@
 
 #define DEBUG_PRINT_INTERVAL_MS 1000 // used for the sophisticated debug print
 
+APP_TIMER_DEF(ACCEL_GAME_HANDLER_TIMER);
 APP_TIMER_DEF(ACCEL_CHECK_TIMER);
 APP_TIMER_DEF(HOLD_FEEDBACK_TIMER); 
 APP_TIMER_DEF(HOLD_FAIL_TIMER); // for flashing red on NEOstick
@@ -49,6 +50,8 @@ static int current_step = 0;
 static int steps_done = 0; // aka number of instructions completed
 
 static uint8_t hold_led_index = 0;
+
+void accel_puzzle_handler(void* unused);
 
 static void hold_feedback_handler(void *unused) {
     if (hold_led_index < 8) {
@@ -143,6 +146,7 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
 
     lsm6dso_init(twi_mgr_instance);
 
+    app_timer_create(&ACCEL_GAME_HANDLER_TIMER, APP_TIMER_MODE_REPEATED, accel_puzzle_handler);
     app_timer_create(&ACCEL_CHECK_TIMER, APP_TIMER_MODE_REPEATED, hold_check_handler);
     app_timer_create(&HOLD_FEEDBACK_TIMER, APP_TIMER_MODE_REPEATED, hold_feedback_handler);
     app_timer_create(&HOLD_FAIL_TIMER, APP_TIMER_MODE_SINGLE_SHOT, hold_fail_handler);
@@ -152,10 +156,8 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
 }
 
 bool accel_puzzle_start(void) {
-    if (puzzle_active) return false;
-
+    if (puzzle_active) return false; // game is already running, why start
     reset_puzzle();
-    puzzle_active = true;
 
     if (debug) printf("ACCEL: Puzzle started.\n");
     return true;
@@ -168,6 +170,7 @@ void accel_puzzle_stop(void) {
     puzzle_active = false;
     stop_hold_timer();
     reset_step();
+    app_timer_stop(ACCEL_GAME_HANDLER_TIMER);
     app_timer_stop(HOLD_FEEDBACK_TIMER);
     app_timer_stop(HOLD_FAIL_TIMER);
     neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
@@ -178,21 +181,18 @@ void accel_puzzle_stop(void) {
     }
 }
 
-void accel_puzzle_continue(void* _unused) {
-    if (!puzzle_active) {
-        return;
-    }
+void accel_puzzle_handler(void* unused) {
 
     if (steps_done >= NUM_INSTRUCTIONS_TO_PLAY) {
-        if (!puzzle_complete) {
-            if (debug) printf("\n");
-            if (debug) printf("ACCEL: Puzzle COMPLETED!\n");
-            DFR0760_say("Accelerometer puzzle complete. Well done!");
-            puzzle_complete = true;
+            if (!puzzle_complete) {
+                if (debug) printf("\n");
+                if (debug) printf("ACCEL: Puzzle COMPLETED!\n");
+                DFR0760_say("Accelerometer puzzle complete. Well done!");
+                puzzle_complete = true;
+            }
+            accel_puzzle_stop();
+            return;
         }
-        accel_puzzle_stop();
-        return;
-    }
 
     accel_puzzle_instruction_t target = defined_instructions[current_step];
 
@@ -260,12 +260,22 @@ void accel_puzzle_continue(void* _unused) {
 
         if (elapsed_ticks >= APP_TIMER_TICKS(HOLD_TIME_MS)) {
             if (debug) printf("\n");
+            neopixel_clear_all(NEO_STICK);
             DFR0760_say("Good.");
             steps_done++;
             current_step++;
             reset_step();
         }
     }
+}
+
+void accel_puzzle_continue(void* unused) {
+    if (puzzle_active) { // preventing firing the handler timer multiple times
+        return;
+    }
+
+    puzzle_active = true;
+    app_timer_start(ACCEL_GAME_HANDLER_TIMER, APP_TIMER_TICKS(100), NULL);
 }
 
 bool is_accel_puzzle_active(void) {

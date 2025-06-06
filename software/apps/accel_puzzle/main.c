@@ -51,19 +51,18 @@ int main(void) {
 
   bool debug = true;
   accel_puzzle_init(gpio_i2c_addr0, &twi_mngr_instance, &accel_puzzle_pins, debug); 
+  accel_puzzle_start(); 
 
   while (1) {
-    if (!sx1509_pin_read(gpio_i2c_addr0, accel_puzzle_pins.puzzle_select)) {
-      accel_puzzle_start();  
+    if (is_accel_puzzle_complete()) {
+      if (debug) printf("ACCEL: Puzzle complete.\n");
       break;
+    }
+
+    if (!is_accel_puzzle_complete() && !sx1509_pin_read(gpio_i2c_addr0, accel_puzzle_pins.puzzle_select)) {
+      accel_puzzle_continue(NULL);
     }
     nrf_delay_ms(100);
   }
 
-  while (1)
-  {
-    accel_puzzle_continue(NULL);
-    nrf_delay_ms(100);
-  }
-  
 }
