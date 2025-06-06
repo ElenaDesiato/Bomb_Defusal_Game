@@ -106,10 +106,16 @@ typedef enum {
   FIFO_DATA_OUT_Z_H      = 0x7E,  
 } lsm6dso_reg_t; 
 
+// Initialize accelerometer; does not start measurements
 void lsm6dso_init(const nrf_twi_mngr_t* i2c);
 
 // Returns true iff measurement is ready - nonblocking
 bool lsm6dso_is_ready(void); 
+
+// Stop taking measurements
+void lsm6dso_stop(void);
+// Start measurements again
+void lsm6dso_start(void);
 
 // Returns tilt angle in degrees - non-blocking
 // Should NOT be called unless lsm6dso_is_ready returns true

@@ -29,7 +29,7 @@ APP_TIMER_DEF(HOLD_FEEDBACK_TIMER);
 APP_TIMER_DEF(HOLD_FAIL_TIMER); // for flashing red on NEOstick
 
 static uint8_t sx1509_i2c_addr = 0;
-static accel_puzzle_pins_t* puzzle_pins = NULL;
+static const accel_puzzle_pins_t* puzzle_pins;
 static bool debug = true;
 
 static bool puzzle_initialized = false;
@@ -132,10 +132,11 @@ static void reset_puzzle() {
     steps_done = 0;
     current_step = 0;
     puzzle_complete = false;
+    neopixel_clear_all(NEO_STICK);
     reset_step();
 }
 
-void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, accel_puzzle_pins_t* p_pins, bool enable_debug) {
+void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, const accel_puzzle_pins_t* p_pins, bool enable_debug) {
     if (puzzle_initialized) return;
 
     sx1509_i2c_addr = i2c_addr;
@@ -152,12 +153,14 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
     app_timer_create(&HOLD_FAIL_TIMER, APP_TIMER_MODE_SINGLE_SHOT, hold_fail_handler);
     setup_instructions();
     puzzle_initialized = true;
+    neopixel_clear_all(NEO_STICK);
     if (debug) printf("ACCEL: Puzzle module initialized.\n");
 }
 
 bool accel_puzzle_start(void) {
     if (puzzle_active) return false; // game is already running, why start
     reset_puzzle();
+    lsm6dso_start(); 
 
     if (debug) printf("ACCEL: Puzzle started.\n");
     return true;
@@ -168,14 +171,15 @@ void accel_puzzle_stop(void) {
 
     if (debug) printf("ACCEL: Puzzle stopped.\n");
     puzzle_active = false;
-    stop_hold_timer();
     reset_step();
     app_timer_stop(ACCEL_GAME_HANDLER_TIMER);
     app_timer_stop(HOLD_FEEDBACK_TIMER);
     app_timer_stop(HOLD_FAIL_TIMER);
-    neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
-
-    if (!puzzle_complete) {
+    lsm6dso_stop(); 
+    if (puzzle_complete) {
+        neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
+    }
+    else {
         neopixel_clear_all(NEO_STICK);
         hold_led_index = 0;
     }
@@ -273,15 +277,15 @@ void accel_puzzle_continue(void* unused) {
     if (puzzle_active) { // preventing firing the handler timer multiple times
         return;
     }
-
+    lsm6dso_start(); 
     puzzle_active = true;
     app_timer_start(ACCEL_GAME_HANDLER_TIMER, APP_TIMER_TICKS(100), NULL);
 }
 
-bool is_accel_puzzle_active(void) {
+bool accel_puzzle_is_active(void) {
     return puzzle_active;
 }
 
-bool is_accel_puzzle_complete(void) {
+bool accel_puzzle_is_complete(void) {
     return puzzle_complete;
 }

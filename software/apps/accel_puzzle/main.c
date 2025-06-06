@@ -35,7 +35,7 @@ int main(void) {
   // Define pins for the puzzle
   accel_puzzle_pins_t accel_puzzle_pins = {
     .puzzle_select = 7,         // Pin 7 on the SX1509
-    .neopixel_stick = EDGE_P12  // Not used in this logic, but defined
+    .neopixel_stick = EDGE_P1  // Not used in this logic, but defined
   };
 
   app_timer_init();

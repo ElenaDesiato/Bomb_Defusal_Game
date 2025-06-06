@@ -167,6 +167,14 @@ float lsm6dso_get_roll(void) {
   return curr_roll; 
 }
 
+void lsm6dso_stop(void){
+  app_timer_stop(measurement_timer);
+}
+
+void lsm6dso_start(void){
+  app_timer_start(measurement_timer, APP_TIMER_TICKS(ACC_MEASUREMENT_INTERVAL), NULL);
+}
+
 
 /* Initialize sensor
     * ignore most features as not needed: no FIFO buffer (default off), no interrupts
@@ -205,6 +213,6 @@ void lsm6dso_init(const nrf_twi_mngr_t* i2c) {
     app_timer_init();
     app_timer_create(&measurement_timer, APP_TIMER_MODE_REPEATED, set_measurement);
     // APP_TIMER_TICKS converts ms to timer ticks
-    app_timer_start(measurement_timer, APP_TIMER_TICKS(ACC_MEASUREMENT_INTERVAL), NULL); 
+    //app_timer_start(measurement_timer, APP_TIMER_TICKS(ACC_MEASUREMENT_INTERVAL), NULL); 
 }
 
