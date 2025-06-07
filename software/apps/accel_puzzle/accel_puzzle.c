@@ -194,7 +194,7 @@ void accel_puzzle_handler(void* unused) {
             if (!puzzle_complete) {
                 if (debug) printf("\n");
                 if (debug) printf("ACCEL: Puzzle COMPLETED!\n");
-                DFR0760_say("Accelerometer puzzle complete. Well done!");
+                DFR0760_say("Complete");
                 puzzle_complete = true;
             }
             accel_puzzle_stop();

@@ -11,6 +11,7 @@
 #include "sx1509.h"
 #include "neopixel.h" 
 #include "rgb_puzzle.h"
+#include "rng.h"
 
 #define NUM_ROUNDS 3                
 #define SOL_LENGTH 6              
@@ -83,7 +84,7 @@ static void set_input_feedback(bool success) {
 // Timer Handlers
 static void sol_seq_show_timer_handler(void* unused) {
     if (display_idx < SOL_LENGTH) {
-        if (debug) printf("RGB: Showing instruction color %d/%d\n", display_idx + 1, SOL_LENGTH);
+        //if (debug) printf("RGB: Showing instruction color %d/%d\n", display_idx + 1, SOL_LENGTH);
         
         // color mapping (to the neopixel color table enum. i kinda hate it but we can change it later)
         color_name_t neo_color;
@@ -100,7 +101,7 @@ static void sol_seq_show_timer_handler(void* unused) {
         display_idx++;
         app_timer_start(SOL_SEQ_SHOW_TIMER, APP_TIMER_TICKS(SHOW_COLOR_DURATION_MS), NULL);
     } else {
-        if (debug) printf("RGB: Sequence showing finished\n");
+        //if (debug) printf("RGB: Sequence showing finished\n");
         clear_outer_leds();
         curr_state = WAIT_INPUT;
         input_idx = 0;
@@ -117,7 +118,7 @@ static void show_sol_seq(void) {
     neopixel_clear(NEO_JEWEL, NEOPIXEL_CENTER_LED);
 
     curr_state = SHOW_INST;
-    if (debug) printf("RGB: showing instruction\n");
+    //if (debug) printf("RGB: showing instruction\n");
     app_timer_start(SOL_SEQ_SHOW_TIMER, APP_TIMER_TICKS(SHOW_COLOR_DURATION_MS), NULL);
 }
 
@@ -135,7 +136,8 @@ void rgb_puzzle_init(uint8_t sx1509_addr, const rgb_puzzle_pins_t* p_pins, bool 
     button_pins[PUZZLE_COLOR_YELLOW] = puzzle_pins->yellow_button;
 
     for (int i = 0; i < 4; i++) {
-        sx1509_pin_config_input_pullup(sx1509_i2c_addr, button_pins[i]);
+        //sx1509_pin_config_input_pullup(sx1509_i2c_addr, button_pins[i]);
+        nrf_gpio_cfg_input(button_pins[i], NRF_GPIO_PIN_PULLUP);
     }
     nrf_gpio_cfg_input(puzzle_pins->puzzle_select, NRF_GPIO_PIN_PULLUP);
     neopixel_clear_all(NEO_JEWEL);
@@ -143,8 +145,10 @@ void rgb_puzzle_init(uint8_t sx1509_addr, const rgb_puzzle_pins_t* p_pins, bool 
     app_timer_create(&RGB_PUZZLE_HANDLER_TIMER, APP_TIMER_MODE_REPEATED, rgb_puzzle_handler);
     app_timer_create(&SOL_SEQ_SHOW_TIMER, APP_TIMER_MODE_SINGLE_SHOT, sol_seq_show_timer_handler);
     app_timer_create(&FEEDBACK_SHOW_TIMER, APP_TIMER_MODE_SINGLE_SHOT, feedback_timer_handler);
-
-    srand(app_timer_cnt_get()); // (Source: copilot) Set Seed with current timer ticks for randomness
+        
+    // Get a random generator seed
+    rng_init(); 
+    srand(rng_get8());
 
     for(int i=0; i<4; i++) {
         last_button_pressed_states[i] = false;
@@ -224,7 +228,7 @@ static void process_button_press(rgb_puzzle_color_t color_pressed) {
     if (debug) printf("RGB: Player input %d/%d: Color %s registered.\n", input_idx, SOL_LENGTH, get_color_name_str(color_pressed));
 
     if (input_idx == SOL_LENGTH) {
-        if (debug) printf("RGB: Full sequence entered. state -> CHECK_SEQ.\n");
+        //if (debug) printf("RGB: Full sequence entered. state -> CHECK_SEQ.\n");
         curr_state = CHECK_SEQ;
     }
 }
@@ -262,7 +266,7 @@ void rgb_puzzle_handler(void* unused) {
         case WAIT_INPUT:
             // reading input
             for (int i = 0; i < 4; i++) { // R, G, B, Y
-                bool curr_press_state = (sx1509_pin_read(sx1509_i2c_addr, button_pins[i]) == false);
+                bool curr_press_state = (nrf_gpio_pin_read(button_pins[i]) == false);
 
                 // same thing we did in keypad. we need debounce or it'll keep spamming input
                 if (curr_press_state && !last_button_pressed_states[i]) { // button is released 
@@ -275,7 +279,7 @@ void rgb_puzzle_handler(void* unused) {
 
         case CHECK_SEQ:
         {
-            if (debug) printf("RGB: State -> CHECK_SEQ\n");
+            //if (debug) printf("RGB: State -> CHECK_SEQ\n");
             bool seq_match = true;
             for (int i = 0; i < SOL_LENGTH; i++) {
                 if (player_input_seq[i] != curr_sol_seq[i]) {
@@ -287,10 +291,10 @@ void rgb_puzzle_handler(void* unused) {
             set_input_feedback(seq_match);
 
             if (seq_match) {
-                if (debug) printf("RGB: input CORRECT!\n");
+                //if (debug) printf("RGB: input CORRECT!\n");
                 curr_state = ROUND_SUCCESS_FEEDBACK;
             } else {
-                if (debug) printf("RGB: input INCORRECT.\n");
+                //if (debug) printf("RGB: input INCORRECT.\n");
                 curr_state = ROUND_FAIL_FEEDBACK;
             }
             break;

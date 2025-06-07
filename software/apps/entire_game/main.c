@@ -10,6 +10,7 @@
 #include "../switch_puzzle/switch_puzzle.h"
 #include "../morse_puzzle/morse_puzzle.h"
 #include "../accel_puzzle/accel_puzzle.h"
+#include "../rgb_puzzle/rgb_puzzle.h"
 #include "../sx1509/sx1509.h"
 #include "../DFR0760/DFR0760.h"
 #include "../seg7/seg7.h"
@@ -34,6 +35,12 @@ static const nrf_drv_twi_config_t i2c_config = {
 static const uint8_t gpio_i2c_addr0 = SX1509_ADDR_00; 
 static const uint8_t gpio_i2c_addr1 = SX1509_ADDR_10; 
 
+static const neopixel_pins_t neopixel_pins = {
+  .ring = EDGE_P9,
+  .jewel = EDGE_P2,
+  .stick = EDGE_P1,
+};
+
 static const switch_puzzle_pins_t switch_puzzle_pins = {
     // All on breakout
     .switches = {EDGE_P3, EDGE_P4, EDGE_P5, EDGE_P6, EDGE_P7},
@@ -51,15 +58,18 @@ static const morse_puzzle_pins_t morse_puzzle_pins = {
     .buzzer = EDGE_P13 // on breakout
 };
 
-static const neopixel_pins_t neopixel_pins = {
-  .ring = EDGE_P9,
-  .jewel = EDGE_P2,
-  .stick = EDGE_P1,
-};
-
 static const accel_puzzle_pins_t accel_puzzle_pins = {
     .puzzle_select = EDGE_P0,         // Pin 0 on breakout
     .neopixel_stick = EDGE_P1 
+};
+
+static const rgb_puzzle_pins_t rgb_puzzle_pins = {
+    // all on breakout
+    .red_button = EDGE_P15,     // was 1
+    .green_button = EDGE_P10, // was 4
+    .blue_button = EDGE_P11,   // was 3
+    .yellow_button = EDGE_P12,        // 2
+    .puzzle_select = EDGE_P8, 
 };
 
 #define START_BUTTON_PIN 8 // on 10 gpio expander
@@ -124,6 +134,9 @@ int main(void) {
     // Initialize accelerometer puzzle
     accel_puzzle_init(gpio_i2c_addr0, &twi_mngr_instance,&accel_puzzle_pins, debug); 
 
+    // Initialize rgb puzzle
+    rgb_puzzle_init(gpio_i2c_addr0, &rgb_puzzle_pins, debug); 
+
     // Configure main button 
     sx1509_pin_config_input_pullup(gpio_i2c_addr1, START_BUTTON_PIN); 
     // puzzle select buttons configured as inputs in puzzles themselves
@@ -145,6 +158,7 @@ int main(void) {
             if (debug) printf("Morse puzzle started \n");
             switch_puzzle_stop();
             accel_puzzle_stop();
+            rgb_puzzle_stop();
             morse_puzzle_continue(NULL); 
         }
 
@@ -153,6 +167,7 @@ int main(void) {
             if (debug) printf("Switch puzzle started \n"); 
             morse_puzzle_stop();
             accel_puzzle_stop();
+            rgb_puzzle_stop();
             switch_puzzle_continue(NULL); 
         }
 
@@ -161,16 +176,26 @@ int main(void) {
             if (debug) printf("Accelerometer puzzle started \n"); 
             morse_puzzle_stop();
             switch_puzzle_stop();
+            rgb_puzzle_stop();
             accel_puzzle_continue(NULL); 
         }
 
+        // RGB Puzzle
+        if(is_game_running && !rgb_puzzle_is_complete() && !nrf_gpio_pin_read(rgb_puzzle_pins.puzzle_select)){
+            if (debug) printf("RGB puzzle started \n"); 
+            morse_puzzle_stop();
+            switch_puzzle_stop();
+            accel_puzzle_stop();
+            rgb_puzzle_continue(NULL); 
+        }
+
         // Game successfully completed
-        if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete() && accel_puzzle_is_complete()) {
+        if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete() && accel_puzzle_is_complete() && rgb_puzzle_is_complete()) {
             complete_game(&is_game_running); 
         }
 
         // Timer ran out 
-        if (is_game_running && time_ran_out() && !morse_puzzle_is_complete() && !switch_puzzle_is_complete() && !accel_puzzle_is_complete()) {
+        if (is_game_running && time_ran_out() && (!morse_puzzle_is_complete() || !switch_puzzle_is_complete() || !accel_puzzle_is_complete() || !rgb_puzzle_is_complete())) {
             handle_out_of_time(&is_game_running);
         }
         nrf_delay_ms(100); 

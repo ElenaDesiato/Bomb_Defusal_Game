@@ -17,6 +17,7 @@ APP_HEADER_PATHS += ../sx1509
 APP_HEADER_PATHS += ../morse_puzzle
 APP_HEADER_PATHS += ../switch_puzzle
 APP_HEADER_PATHS += ../accel_puzzle
+APP_HEADER_PATHS += ../rgb_puzzle
 APP_HEADER_PATHS += ../seg7
 
 APP_SOURCE_PATHS += .
@@ -30,6 +31,7 @@ APP_SOURCE_PATHS += ../sx1509
 APP_SOURCE_PATHS += ../morse_puzzle
 APP_SOURCE_PATHS += ../switch_puzzle
 APP_SOURCE_PATHS += ../accel_puzzle
+APP_SOURCE_PATHS += ../rgb_puzzle
 APP_SOURCE_PATHS += ../seg7
 APP_SOURCES += $(foreach path,$(APP_SOURCE_PATHS),$(notdir $(wildcard $(path)/*.c)))
 

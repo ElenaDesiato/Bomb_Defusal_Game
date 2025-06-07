@@ -107,15 +107,9 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
 
 void morse_puzzle_start(void) {
   keypad_start_scanning(); 
-  morse_solution_gen(); //generate a random solution
-  printf("Solution: "); 
-  for (int i = 0; i <= SOLUTION_LENGTH; i++) {
-    printf("%c, ",solution_str[i]); 
-  }
-  printf("\n"); 
+  morse_solution_gen(); //generate a random solutio
   is_puzzle_complete = false; 
   morse_set_LED_off(); 
-  printf("set LED off\n");
   keypad_clear_input_record();
 }
 

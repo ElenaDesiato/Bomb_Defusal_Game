@@ -61,7 +61,7 @@ int main(void) {
     if (rgb_puzzle_is_complete()) {break;}
 
     if (!rgb_puzzle_is_complete() && !nrf_gpio_pin_read(rgb_puzzle_pins.puzzle_select)) {
-      if (debug) printf("puzzle sel read: %d\n",  nrf_gpio_pin_read(rgb_puzzle_pins.puzzle_select));
+      if (debug) printf("puzzle sel read: %ld\n",  nrf_gpio_pin_read(rgb_puzzle_pins.puzzle_select));
       rgb_puzzle_continue(NULL);
     }
     nrf_delay_ms(100); 
