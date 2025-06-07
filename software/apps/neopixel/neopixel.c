@@ -36,15 +36,15 @@ static const neopixel_pins_t* pins = NULL;
 
 const color_t COLOR_TABLE[COLOR_COUNT] = {
   [COLOR_BLACK]   = {0, 0, 0,0},
-  [COLOR_WHITE]   = {16, 16, 16,0},
   [COLOR_RED]     = {16, 0, 0,0},  
+  [COLOR_ORANGE]     = {16, 4, 0,0},  
+  [COLOR_YELLOW]  = {16, 16, 0,0},
   [COLOR_GREEN]   = {0, 16, 0,0},
   [COLOR_BLUE]    = {0, 0, 16,0},
-  [COLOR_YELLOW]  = {16, 16, 0,0},
-  [COLOR_CYAN]    = {0, 16, 16,0},
-  [COLOR_MAGENTA] = {16, 0, 16,0},
+  [COLOR_PURPLE]    = {16, 0, 16,0},
+  [COLOR_PINK] =    {16, 4, 8,0},
+  [COLOR_WHITE]   = {16, 16, 16,0},
 };
-
 
 // PWM configuration
 static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(0);

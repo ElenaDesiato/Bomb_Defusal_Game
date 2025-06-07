@@ -23,14 +23,15 @@ typedef enum {
 } neopixel_device_t;
 
 typedef enum {
-  COLOR_BLACK,
+  COLOR_BLACK, 
+  COLOR_RED, 
+  COLOR_ORANGE,
+  COLOR_YELLOW, 
+  COLOR_GREEN, 
+  COLOR_BLUE, 
+  COLOR_PURPLE, 
+  COLOR_PINK, 
   COLOR_WHITE,
-  COLOR_RED,
-  COLOR_GREEN,
-  COLOR_BLUE,
-  COLOR_YELLOW,
-  COLOR_CYAN,
-  COLOR_MAGENTA,
   COLOR_COUNT
 } color_name_t;
 
@@ -41,6 +42,7 @@ void neopixel_init(const neopixel_pins_t* pins, bool debug);
 void neopixel_set_rgbw(neopixel_device_t device, uint8_t index, uint8_t w, uint8_t r, uint8_t g, uint8_t b);
 void neopixel_set_color(neopixel_device_t device, uint8_t led_index, color_name_t color_name);
 void neopixel_set_color_all(neopixel_device_t device, color_name_t color_name);
+
 // Turn off neopixel devices
 void neopixel_clear(neopixel_device_t device, uint8_t led_index);
 void neopixel_clear_all(neopixel_device_t device);

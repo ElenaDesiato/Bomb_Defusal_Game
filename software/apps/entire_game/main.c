@@ -19,8 +19,12 @@
 static bool debug = true; 
 
 // Game parameters
-#define GAME_LENGTH_SEC 5*60
+#define GAME_LENGTH_SEC 5
 #define TTS_VOLUME_LEVEL 1
+#define FAILURE_FLASH_INTERVAL_MS 250
+#define SUCCESS_COLOR_INTERVAL_MS 10
+
+APP_TIMER_DEF(game_end_flash_timer);
 
 // Various configuration parameters
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 32, 0);
@@ -51,7 +55,7 @@ static const morse_puzzle_pins_t morse_puzzle_pins = {
     // first few on 10 gpio expander (addr1)
     .rows = {0, 1, 2, 3},
     .cols = {4, 5, 6},
-    .puzzle_select = 15,
+    .puzzle_select = EDGE_P16,
     .led_g = 12,
     .led_b = 13,
     .led_r = 14,
@@ -74,35 +78,80 @@ static const rgb_puzzle_pins_t rgb_puzzle_pins = {
 
 #define START_BUTTON_PIN 8 // on 10 gpio expander
 
+// Global state variables
+static bool is_game_running = false; 
+static bool is_game_complete = false; 
+static bool failure_lights_on = false;
+static int success_curr_color = COLOR_BLACK; 
+
+// Flash timer callback
+static void toggle_lights(void* _unused) {
+    if (is_game_complete) { 
+        morse_set_LED_green(); 
+        success_curr_color = (success_curr_color + 1) % 8;
+        neopixel_set_color_all(NEO_JEWEL,success_curr_color); 
+        neopixel_set_color_all(NEO_RING,success_curr_color); 
+        neopixel_set_color_all(NEO_STICK,success_curr_color); 
+    }
+    else if (failure_lights_on) {
+        neopixel_clear_all(NEO_JEWEL);
+        neopixel_clear_all(NEO_RING);
+        neopixel_clear_all(NEO_STICK);
+        morse_set_LED_off();
+        failure_lights_on = false;
+    } else {
+        neopixel_set_color_all(NEO_JEWEL,COLOR_RED);
+        neopixel_set_color_all(NEO_RING,COLOR_RED);
+        neopixel_set_color_all(NEO_STICK,COLOR_RED);
+        morse_set_LED_red();
+        failure_lights_on = true;
+    }
+}
+
 // Helper functions to take care of basic game logic (starting game, completing game, running out of time)
-static void start_game(bool *is_game_running) {
+static void start_game(void) {
     if (debug) printf("Timer started.\n"); 
-    *is_game_running = true; 
+    is_game_complete = false; 
+    is_game_running = true; 
     morse_puzzle_start();
     switch_puzzle_start(); 
+    rgb_puzzle_start(); 
+
+    neopixel_clear_all(NEO_JEWEL);
+    neopixel_clear_all(NEO_RING);
+    neopixel_clear_all(NEO_STICK);
+    morse_set_LED_off();
+
     seg7_set_countdown(GAME_LENGTH_SEC); 
     seg7_start_timer();  
 }
+static void complete_game(void); 
+static void handle_out_of_time(void) {
 
-static void handle_out_of_time(bool *is_game_running) {
     if (debug) printf("Time ran out.\n"); 
-    *is_game_running = false; 
+    is_game_running = false; 
     seg7_stop_timer(); 
     neopixel_set_color_all(NEO_RING, COLOR_RED);
     neopixel_set_color_all(NEO_STICK, COLOR_RED);
     neopixel_set_color_all(NEO_JEWEL, COLOR_RED);
     morse_set_LED_red();
+    is_game_complete = false; 
+    failure_lights_on = false; 
+    app_timer_start(game_end_flash_timer, APP_TIMER_TICKS(FAILURE_FLASH_INTERVAL_MS), NULL);
     DFR0760_say("Boom"); 
 }
 
-static void complete_game(bool *is_game_running) {
+static void complete_game(void) {
     if (debug) printf("Game successfully completed!\n"); 
-    *is_game_running = false; 
+    is_game_running = false; 
     seg7_stop_timer(); 
     neopixel_set_color_all(NEO_RING, COLOR_GREEN);
     neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
     neopixel_set_color_all(NEO_JEWEL, COLOR_GREEN);
     morse_set_LED_green();
+    is_game_complete = true; 
+    success_curr_color = COLOR_BLACK; 
+    app_timer_start(game_end_flash_timer, APP_TIMER_TICKS(SUCCESS_COLOR_INTERVAL_MS), NULL); 
     DFR0760_say("Congratulations"); 
 }
 
@@ -111,6 +160,8 @@ int main(void) {
 
     // Initialize App Timer library
     app_timer_init();
+    // Create timer for flashing
+    app_timer_create(&game_end_flash_timer, APP_TIMER_MODE_REPEATED, toggle_lights);
 
     // i2c initialization
     nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
@@ -145,16 +196,22 @@ int main(void) {
     DFR0760_init(&twi_mngr_instance); 
     DFR0760_set_volume(TTS_VOLUME_LEVEL);
 
+    // Reset all LEDs to be off
+    neopixel_clear_all(NEO_JEWEL);
+    neopixel_clear_all(NEO_RING);
+    neopixel_clear_all(NEO_STICK);
+    morse_set_LED_off();
+
     // Main game logic
-    bool is_game_running = false; 
+    is_game_running = false;
     while (1) {
         // Start timer
         if(!is_game_running && !sx1509_pin_read(gpio_i2c_addr1,START_BUTTON_PIN)) {
-            start_game(&is_game_running); 
+            start_game(); 
         }
 
         // Morse Puzzle
-        if(is_game_running && !morse_puzzle_is_complete() && !sx1509_pin_read(gpio_i2c_addr1,morse_puzzle_pins.puzzle_select)) {
+        if(is_game_running && !morse_puzzle_is_complete() && !nrf_gpio_pin_read(morse_puzzle_pins.puzzle_select)) {
             if (debug) printf("Morse puzzle started \n");
             switch_puzzle_stop();
             accel_puzzle_stop();
@@ -191,12 +248,12 @@ int main(void) {
 
         // Game successfully completed
         if (is_game_running && morse_puzzle_is_complete() && switch_puzzle_is_complete() && accel_puzzle_is_complete() && rgb_puzzle_is_complete()) {
-            complete_game(&is_game_running); 
+            complete_game(); 
         }
 
         // Timer ran out 
         if (is_game_running && time_ran_out() && (!morse_puzzle_is_complete() || !switch_puzzle_is_complete() || !accel_puzzle_is_complete() || !rgb_puzzle_is_complete())) {
-            handle_out_of_time(&is_game_running);
+            handle_out_of_time();
         }
         nrf_delay_ms(100); 
     }
