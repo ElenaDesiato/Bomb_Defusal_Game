@@ -95,7 +95,8 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
 
   keypad_init(sx1509_i2c_addr,pins->rows, pins->cols); 
   lilybuzzer_init(pins->buzzer); 
-  sx1509_pin_config_input_pullup(sx1509_i2c_addr, pins->puzzle_select);
+  nrf_gpio_cfg_input(pins->puzzle_select, NRF_GPIO_PIN_PULLUP);
+  //sx1509_pin_config_input_pullup(sx1509_i2c_addr, pins->puzzle_select);
 
   sx1509_pin_config_output(sx1509_i2c_addr,  pins->led_b); 
   sx1509_pin_config_output(sx1509_i2c_addr,  pins->led_r); 
@@ -107,7 +108,7 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
 
 void morse_puzzle_start(void) {
   keypad_start_scanning(); 
-  morse_solution_gen(); //generate a random solutio
+  morse_solution_gen(); //generate a random solution
   is_puzzle_complete = false; 
   morse_set_LED_off(); 
   keypad_clear_input_record();
@@ -126,13 +127,14 @@ void morse_solution_gen(void) {
 void morse_puzzle_continue(void* _unused) {
   keypad_start_scanning();
   // Reset if puzzle select is pressed
-  if (!sx1509_pin_read(sx1509_i2c_addr,  pins->puzzle_select)) {
+  if (!nrf_gpio_pin_read(pins->puzzle_select)) {
     if (debug) printf("Morse Puzzle: Puzzle reset.\n");
     stop_buzzer();
     play_morse_message(solution_str,SOLUTION_LENGTH); 
     keypad_clear_input_record(); 
     keypad_start_scanning(); 
-    morse_set_LED_white(); //TODO: fix this. it is setting the led RED. but if i use morse_set_LED_green() it sets it to green idk
+    morse_set_LED_off(); 
+    //morse_set_LED_white(); //TODO: fix this. it is setting the led RED. but if i use morse_set_LED_green() it sets it to green idk
   }
   
   // Check if keypad input matches 
