@@ -205,7 +205,21 @@ void accel_puzzle_handler(void* unused) {
 
     if (!step_announced) {
         char speech_buf[128];
-        snprintf(speech_buf, sizeof(speech_buf), "x equals to %d. y equals to %d.", target.pitch, target.roll);
+        if (target.pitch != 0) {
+            if (target.pitch > 0) {
+                snprintf(speech_buf, sizeof(speech_buf), "Hold. Downward Degree: %d", target.pitch);
+            } else {
+                snprintf(speech_buf, sizeof(speech_buf), "Hold. Upward Degree: %d", target.pitch);
+            }
+        } else {
+            if (target.roll < 0) {
+                snprintf(speech_buf, sizeof(speech_buf), "Turn Right Degree: %d ", target.roll);
+            } else {
+                snprintf(speech_buf, sizeof(speech_buf), "Turn Left Degree: %d ", target.roll);
+            }
+        }
+
+
         DFR0760_say(speech_buf);
         if (debug) printf("ACCEL: Instruction %d: Target P:%d, R:%d\n", steps_done + 1, target.pitch, target.roll);
         step_announced = true;
