@@ -137,8 +137,7 @@ void rgb_puzzle_init(uint8_t sx1509_addr, const rgb_puzzle_pins_t* p_pins, bool 
     for (int i = 0; i < 4; i++) {
         sx1509_pin_config_input_pullup(sx1509_i2c_addr, button_pins[i]);
     }
-    nrf_gpio_cfg_input(puzzle_pins->puzzle_select, NRF_GPIO_PIN_PULLUP); //puzzle sel
-
+    nrf_gpio_cfg_input(puzzle_pins->puzzle_select, NRF_GPIO_PIN_PULLUP);
     neopixel_clear_all(NEO_JEWEL);
 
     app_timer_create(&RGB_PUZZLE_HANDLER_TIMER, APP_TIMER_MODE_REPEATED, rgb_puzzle_handler);
@@ -192,7 +191,7 @@ void rgb_puzzle_stop() {
 void rgb_puzzle_continue(void* unused) {
     if (puzzle_active) return; // flag
     if (puzzle_complete) return;
-    
+    if (debug) printf("RGB: puzzle continue called.\n");
     puzzle_active = true;
     curr_state = START_ROUND; // Kick off the first round
     app_timer_start(RGB_PUZZLE_HANDLER_TIMER, APP_TIMER_TICKS(50), NULL);

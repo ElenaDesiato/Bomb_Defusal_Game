@@ -29,8 +29,8 @@ static const rgb_puzzle_pins_t rgb_puzzle_pins = {
     .red_button = 1,
     .green_button = 4,
     .blue_button = 3,
-    .yellow_button = 2,
-    .puzzle_select = 0, // all on sx1509 00
+    .yellow_button = 2,// all on sx1509 00
+    .puzzle_select = EDGE_P8, // on breakout
 };
 
 static const neopixel_pins_t neopixel_pins = {
@@ -60,7 +60,8 @@ int main(void) {
   while (1) {
     if (rgb_puzzle_is_complete()) {break;}
 
-    if (!rgb_puzzle_is_complete() && !sx1509_pin_read(gpio_i2c_addr0, rgb_puzzle_pins.puzzle_select)) {
+    if (!rgb_puzzle_is_complete() && !nrf_gpio_pin_read(rgb_puzzle_pins.puzzle_select)) {
+      if (debug) printf("puzzle sel read: %d\n",  nrf_gpio_pin_read(rgb_puzzle_pins.puzzle_select));
       rgb_puzzle_continue(NULL);
     }
     nrf_delay_ms(100); 
