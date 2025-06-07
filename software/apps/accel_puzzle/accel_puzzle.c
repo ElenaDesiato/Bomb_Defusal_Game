@@ -143,7 +143,7 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
     puzzle_pins = p_pins;
     debug = enable_debug;
 
-    sx1509_pin_config_input_pullup(sx1509_i2c_addr, p_pins->puzzle_select);
+    nrf_gpio_cfg_input(p_pins->puzzle_select, NRF_GPIO_PIN_PULLUP);
 
     lsm6dso_init(twi_mgr_instance);
 
@@ -186,6 +186,9 @@ void accel_puzzle_stop(void) {
 }
 
 void accel_puzzle_handler(void* unused) {
+    if (!puzzle_active) {return;}
+
+    if (puzzle_complete) {return;}
 
     if (steps_done >= NUM_INSTRUCTIONS_TO_PLAY) {
             if (!puzzle_complete) {
@@ -274,7 +277,7 @@ void accel_puzzle_handler(void* unused) {
 }
 
 void accel_puzzle_continue(void* unused) {
-    if (puzzle_active) { // preventing firing the handler timer multiple times
+    if (puzzle_active || puzzle_complete) { // preventing firing the handler timer multiple times
         return;
     }
     lsm6dso_start(); 
