@@ -38,7 +38,7 @@ typedef enum {
 void neopixel_init(const neopixel_pins_t* pins, bool debug);
 
 // Set color of neopixel devices
-void neopixel_set_rgb(neopixel_device_t device, uint8_t index, uint8_t r, uint8_t g, uint8_t b);
+void neopixel_set_rgbw(neopixel_device_t device, uint8_t index, uint8_t w, uint8_t r, uint8_t g, uint8_t b);
 void neopixel_set_color(neopixel_device_t device, uint8_t led_index, color_name_t color_name);
 void neopixel_set_color_all(neopixel_device_t device, color_name_t color_name);
 // Turn off neopixel devices

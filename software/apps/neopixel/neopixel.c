@@ -3,6 +3,7 @@ Goal: Drive multiple neopixel items (Ring, Jewel, Strip) via 1 pwm instance (ins
   - have to use "individual" mode instead of "common"
   - Jewel also has RGBW format instead of RGB which is an extra byte
 Basic code structure reference: Lab5 pwm_square_tone
+Reference for format for bit banging: https://github.com/adafruit/Adafruit_NeoPixel
 */
 
 #include <stdint.h>
@@ -16,9 +17,9 @@ Basic code structure reference: Lab5 pwm_square_tone
 
 
 #define NEOPIXEL_PWM_TOP_VALUE 20
-#define ONE_HIGH         13 
-#define ZERO_HIGH        6   
-#define RESET_DELAY_US   280 // Standard WS2812B reset time is >50us, Adafruit recommends >280us for reliability
+#define ONE_HIGH         13
+#define ZERO_HIGH        7  
+#define RESET_DELAY_US   200 // Standard WS2812B reset time is >50us, Adafruit recommends >280us for reliability
 
 #define MAX_BITS 16*24  //the neopixel sends the most bits
 #define MAX_LED_PER_DEV  16  
@@ -43,6 +44,7 @@ const color_t COLOR_TABLE[COLOR_COUNT] = {
   [COLOR_CYAN]    = {0, 16, 16,0},
   [COLOR_MAGENTA] = {16, 0, 16,0},
 };
+
 
 // PWM configuration
 static const nrfx_pwm_t PWM_INST = NRFX_PWM_INSTANCE(0);
@@ -100,6 +102,8 @@ static void prepare_sequence_data(neopixel_device_t device) {
   int led_count = LED_COUNT[device];
   uint16_t pwm_idx = 0;
 
+  // For ring & strip: send data in grb order, with msb first
+  // For jewel: ? 
   for (int led = 0; led < led_count; led++) {
       uint8_t rgbw_data_seq[4] = { rgb_data[device][led].g, rgb_data[device][led].r, rgb_data[device][led].b , rgb_data[device][led].w};
       for (int c = 0; c < 4; c++) {
@@ -151,7 +155,7 @@ static void neopixel_show(neopixel_device_t device) {
 
 void neopixel_set_color(neopixel_device_t device, uint8_t led_index, color_name_t color_name) {
   if (device < NEO_DEV_COUNT && led_index < LED_COUNT[device] && color_name < COLOR_COUNT) {
-    color_t c = COLOR_TABLE[color_name];
+    color_t c = COLOR_TABLE[color_name]; 
     neopixel_set_rgbw(device, led_index, c.r, c.g, c.b,c.w);
   }
   //printf("[neopixel_set_color] device=%d, led_index=%d, color_name=%d\n", device, led_index, color_name);

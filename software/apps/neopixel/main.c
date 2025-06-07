@@ -27,11 +27,8 @@ int main(void) {
     for(int i = 0; i < 16; i++) {
       neopixel_set_color(NEO_RING, i, COLOR_RED);
       neopixel_set_color(NEO_STICK, i, COLOR_GREEN);
+      neopixel_set_color(NEO_JEWEL, i, COLOR_BLUE);
       nrf_delay_ms(100);
-    }
-    for (int i = 0; i < 8; i++) {
-      neopixel_set_color(NEO_JEWEL, i, COLOR_RED);
-      nrf_delay_ms(100); 
     }
     for(int i = 0; i < 16; i++) {
       neopixel_clear(NEO_RING, i);
