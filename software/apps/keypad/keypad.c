@@ -31,16 +31,23 @@ static const char key_map[4][3] = {
 
 static void keypad_read_input(void* _unused);
 
-static bool debug = false; 
+static bool debug = true; 
+
+static bool is_scanning = false;
 
 void keypad_start_scanning(void) {
-  app_timer_start(keypad_scanning_timer, 3000, NULL); 
+  if (is_scanning) {return;}
+
+  record_index = 0;
+  is_scanning = true;
+  app_timer_start(keypad_scanning_timer, APP_TIMER_TICKS(100), NULL); 
 }
 
 bool keypad_init(uint8_t i2c_addr, const uint8_t* rows, const uint8_t* cols) {
   row_pins = rows; 
   col_pins = cols;
   sx1509_i2c_addr = i2c_addr; 
+  is_scanning = false;
   for (int i = 0; i < 4; i++) {
     sx1509_pin_config_output(sx1509_i2c_addr, row_pins[i]);
     sx1509_pin_write(sx1509_i2c_addr, row_pins[i], true); // set high at init
@@ -52,15 +59,14 @@ bool keypad_init(uint8_t i2c_addr, const uint8_t* rows, const uint8_t* cols) {
   }
 
   //app_timer_init();
-  ret_code_t err = app_timer_create(&keypad_scanning_timer, APP_TIMER_MODE_REPEATED, keypad_read_input);
-  if (err != NRF_SUCCESS) printf("Timer create error: %ld\n", err);
-  keypad_start_scanning(); 
+  app_timer_create(&keypad_scanning_timer, APP_TIMER_MODE_REPEATED, keypad_read_input);
+  if (debug) printf("KEYPAD: INITIALIZED\n");
   return true;
 }
 
 static void keypad_read_input(void* _unused) {
     char key_current = '\0';
-
+    //if (debug) printf("KEYPAD: scanning...\n");
     // Keyboard Scanning
     for (int r = 0; r < 4; r++) {
       sx1509_pin_write(sx1509_i2c_addr, row_pins[r], false);  // Scanned Row: Set Output as low
@@ -81,7 +87,10 @@ static void keypad_read_input(void* _unused) {
 
     if (key_current != '\0' && key_current != key_prev) { 
         key_prev = key_current;
-        key_record[record_index++] = key_current;
+          if (record_index < MAX_RECORD_LENGTH) {
+            key_record[record_index++] = key_current;
+            key_record[record_index] = '\0'; // Keep it null-terminated
+        }
         if (debug) printf("Key_current: %c\n",key_current);
     } else if (key_current == '\0') {
       key_prev = '\0';
@@ -114,5 +123,6 @@ void print_keypad_input(void) {
 
 void keypad_stop_scanning(void) {
   if (debug) printf("Stop scanning called \n");
+  is_scanning = false;
   app_timer_stop(keypad_scanning_timer); // Stop the scanning timer
 }

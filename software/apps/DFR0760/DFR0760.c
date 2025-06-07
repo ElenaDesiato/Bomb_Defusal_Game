@@ -110,10 +110,10 @@ void DFR0760_wait_for_speech_to_finish(void) {
             if (ack_val == ACK_DEVICE_READY) {
                 return; // Speech is finished
             }
+        }
         nrf_delay_ms(50);
+        //printf("Error: Synthesis Time Out");
     }
-    //printf("Error: Synthesis Time Out");
-}
 }
 
 void DFR0760_say(const char *text) {

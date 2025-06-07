@@ -19,10 +19,10 @@ static bool debug = true;
 
 // Game parameters
 #define GAME_LENGTH_SEC 5*60
-#define TTS_VOLUME_LEVEL 4
+#define TTS_VOLUME_LEVEL 1
 
 // Various configuration parameters
-NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
+NRF_TWI_MNGR_DEF(twi_mngr_instance, 32, 0);
 
 static const nrf_drv_twi_config_t i2c_config = {
     .scl = EDGE_P19,
@@ -58,7 +58,7 @@ static const neopixel_pins_t neopixel_pins = {
 };
 
 static const accel_puzzle_pins_t accel_puzzle_pins = {
-    .puzzle_select = 7,         // Pin 7 on addr0
+    .puzzle_select = EDGE_P0,         // Pin 0 on breakout
     .neopixel_stick = EDGE_P1 
 };
 
@@ -157,7 +157,7 @@ int main(void) {
         }
 
         // Accelerometer Puzzle
-        if(is_game_running && !accel_puzzle_is_complete() && !sx1509_pin_read(gpio_i2c_addr0,accel_puzzle_pins.puzzle_select)){
+        if(is_game_running && !accel_puzzle_is_complete() && !nrf_gpio_pin_read(accel_puzzle_pins.puzzle_select)){
             if (debug) printf("Accelerometer puzzle started \n"); 
             morse_puzzle_stop();
             switch_puzzle_stop();

@@ -44,6 +44,11 @@ void morse_set_LED_green() {
   sx1509_pin_clear(sx1509_i2c_addr,  pins->led_g); 
   sx1509_pin_set(sx1509_i2c_addr,  pins->led_b); 
 }
+void morse_set_LED_blue() {
+  sx1509_pin_set(sx1509_i2c_addr,  pins->led_r); 
+  sx1509_pin_set(sx1509_i2c_addr,  pins->led_g); 
+  sx1509_pin_clear(sx1509_i2c_addr,  pins->led_b); 
+}
 void morse_set_LED_white() {
   sx1509_pin_clear(sx1509_i2c_addr,  pins->led_r); 
   sx1509_pin_clear(sx1509_i2c_addr,  pins->led_g); 
@@ -58,9 +63,12 @@ void morse_set_LED_off() {
 // Helper function to check if keypad input matches solution
 
 static bool check_sequence(void){
+  //if (debug) {printf("MORSE: check_sequence called\n");}
+  //print_keypad_input();
   char* input = keypad_get_input();
   volatile uint8_t input_len = keypad_get_input_length();
   if (input_len < SOLUTION_LENGTH) {
+    //if (debug) {printf("MORSE: input length = %d\n", input_len);}
     if (debug && input_len != 0) printf("Input: %s, Input Length: %d\n", input, input_len);
     return false;
   }
@@ -94,8 +102,11 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
   sx1509_pin_config_output(sx1509_i2c_addr,  pins->led_g); 
 
   app_timer_create(&loop_timer, APP_TIMER_MODE_SINGLE_SHOT, morse_puzzle_continue);
+  keypad_clear_input_record(); 
 }
+
 void morse_puzzle_start(void) {
+  keypad_start_scanning(); 
   morse_solution_gen(); //generate a random solution
   printf("Solution: "); 
   for (int i = 0; i <= SOLUTION_LENGTH; i++) {
@@ -104,6 +115,7 @@ void morse_puzzle_start(void) {
   printf("\n"); 
   is_puzzle_complete = false; 
   morse_set_LED_off(); 
+  printf("set LED off\n");
   keypad_clear_input_record();
 }
 
@@ -118,6 +130,7 @@ void morse_solution_gen(void) {
 }
 
 void morse_puzzle_continue(void* _unused) {
+  keypad_start_scanning();
   // Reset if puzzle select is pressed
   if (!sx1509_pin_read(sx1509_i2c_addr,  pins->puzzle_select)) {
     if (debug) printf("Morse Puzzle: Puzzle reset.\n");
@@ -125,8 +138,9 @@ void morse_puzzle_continue(void* _unused) {
     play_morse_message(solution_str,SOLUTION_LENGTH); 
     keypad_clear_input_record(); 
     keypad_start_scanning(); 
-    morse_set_LED_white();
+    morse_set_LED_white(); //TODO: fix this. it is setting the led RED. but if i use morse_set_LED_green() it sets it to green idk
   }
+  
   // Check if keypad input matches 
   if (check_sequence()) {
     morse_set_LED_green(); 
@@ -136,11 +150,12 @@ void morse_puzzle_continue(void* _unused) {
     keypad_stop_scanning(); 
   }
   else {
-    app_timer_start(loop_timer, APP_TIMER_TICKS(10), NULL);
+    app_timer_start(loop_timer, APP_TIMER_TICKS(100), NULL);
   }
 }
 
 void morse_puzzle_stop(void) {
+  if (debug) printf("MORSE: Puzzle stopped.\n");
   stop_buzzer(); 
   keypad_clear_input_record();
   keypad_stop_scanning(); 
