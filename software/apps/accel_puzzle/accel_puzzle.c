@@ -34,6 +34,9 @@ APP_TIMER_DEF(HOLD_FAIL_TIMER); // for flashing red on NEOstick
 static uint8_t sx1509_i2c_addr = 0;
 static const accel_puzzle_pins_t* puzzle_pins;
 static bool debug = true;
+
+static accel_puzzle_instruction_t defined_instructions[MAX_INSTRUCTIONS];
+
 static void setup_instructions() {
   defined_instructions[0] = (accel_puzzle_instruction_t){.pitch = 45, .roll = 0};
   defined_instructions[1] = (accel_puzzle_instruction_t){.pitch = 0, .roll = 45};
@@ -59,7 +62,7 @@ static uint32_t hold_start_ticks = 0;
 
 static uint32_t last_debug_print_ticks = 0;
 
-static accel_puzzle_instruction_t defined_instructions[MAX_INSTRUCTIONS];
+
 static int current_step = 0;
 static int steps_done = 0; // aka number of instructions completed
 
@@ -100,6 +103,7 @@ static void hold_check_handler(void* _unused) {
         return;
     }
 
+    // get current angles from LSM6DSO
     float pitch = lsm6dso_get_pitch();
     float roll = lsm6dso_get_roll();
     accel_puzzle_instruction_t target = defined_instructions[current_step];
@@ -109,13 +113,19 @@ static void hold_check_handler(void* _unused) {
     }
 }
 
+// start the hold timer if the pose is being held
 static void start_hold_timer() {
     pose_is_held = true;
     hold_timer_running = true;
+
+    // checking hold pose durations
     app_timer_start(ACCEL_CHECK_TIMER, APP_TIMER_TICKS(CHECK_INTERVAL_MS), NULL);
+
+    // timer for neopixel stick feedback
     app_timer_start(HOLD_FEEDBACK_TIMER, APP_TIMER_TICKS(250), NULL);
 }
 
+// stop the hold timer
 static void stop_hold_timer() {
     if (hold_timer_running) {
         app_timer_stop(ACCEL_CHECK_TIMER);
@@ -123,12 +133,14 @@ static void stop_hold_timer() {
     }
 }
 
+// reset the pose hold timer and its related variables
 static void reset_step() {
     stop_hold_timer();
     timing_hold = false;
     step_announced = false;
 }
 
+// reset all the puzzle state variables
 static void reset_puzzle() {
     if (debug) printf("ACCEL: Puzzle reset.\n");
     steps_done = 0;
@@ -138,6 +150,7 @@ static void reset_puzzle() {
     reset_step();
 }
 
+// Initialize puzzle. Only call once.
 void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, const accel_puzzle_pins_t* p_pins, bool enable_debug) {
     if (puzzle_initialized) return;
 
@@ -159,6 +172,7 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
     if (debug) printf("ACCEL: Puzzle module initialized.\n");
 }
 
+// Start puzzle (reset puzzle state)
 bool accel_puzzle_start(void) {
     if (puzzle_active) return false; // game is already running, why start
     reset_puzzle();
@@ -168,6 +182,7 @@ bool accel_puzzle_start(void) {
     return true;
 }
 
+// End everything related to the puzzle.
 void accel_puzzle_stop(void) {
     if (!puzzle_active) return;
 
@@ -187,11 +202,13 @@ void accel_puzzle_stop(void) {
     }
 }
 
+// The main puzzle state manager handler
+// frequently called to check the aceel state and update the puzzle logic
 void accel_puzzle_handler(void* _unused) {
     if (!puzzle_active) {return;}
-
     if (puzzle_complete) {return;}
 
+    // return & mark as complete if finished instructions >= NUM_INSTRUCTIONS_TO_PLAY
     if (steps_done >= NUM_INSTRUCTIONS_TO_PLAY) {
             if (!puzzle_complete) {
                 if (debug) printf("\n");
@@ -205,6 +222,7 @@ void accel_puzzle_handler(void* _unused) {
 
     accel_puzzle_instruction_t target = defined_instructions[current_step];
 
+    // give instruction via TTS module
     if (!step_announced) {
         char speech_buf[128];
         if (target.pitch != 0) {
@@ -292,6 +310,7 @@ void accel_puzzle_handler(void* _unused) {
     }
 }
 
+// Continue playing existing puzzle instance
 void accel_puzzle_continue(void* _unused) {
     if (puzzle_active || puzzle_complete) { // preventing firing the handler timer multiple times
         return;
@@ -301,10 +320,12 @@ void accel_puzzle_continue(void* _unused) {
     app_timer_start(ACCEL_GAME_HANDLER_TIMER, APP_TIMER_TICKS(100), NULL);
 }
 
+// Returns true iff puzzle is running.
 bool accel_puzzle_is_active(void) {
     return puzzle_active;
 }
 
+// Returns true iff puzzle has been successfully completed.
 bool accel_puzzle_is_complete(void) {
     return puzzle_complete;
 }
