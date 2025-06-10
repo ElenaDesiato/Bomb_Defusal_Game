@@ -22,7 +22,7 @@ static bool debug = true;
 #define GAME_LENGTH_SEC 5
 #define TTS_VOLUME_LEVEL 1
 #define FAILURE_FLASH_INTERVAL_MS 250
-#define SUCCESS_COLOR_INTERVAL_MS 10
+#define SUCCESS_COLOR_INTERVAL_MS 100
 
 APP_TIMER_DEF(game_end_flash_timer);
 
@@ -84,14 +84,21 @@ static bool is_game_complete = false;
 static bool failure_lights_on = false;
 static int success_curr_color = COLOR_BLACK; 
 
+static int success_curr_idx = 0;
+
 // Flash timer callback
 static void toggle_lights(void* _unused) {
     if (is_game_complete) { 
         morse_set_LED_green(); 
         success_curr_color = (success_curr_color + 1) % 8;
-        neopixel_set_color_all(NEO_JEWEL,success_curr_color); 
-        neopixel_set_color_all(NEO_RING,success_curr_color); 
-        neopixel_set_color_all(NEO_STICK,success_curr_color); 
+
+        neopixel_clear(NEO_JEWEL, success_curr_idx % 6 + 1); 
+        neopixel_clear(NEO_RING, success_curr_idx % 16); 
+        neopixel_clear(NEO_STICK, success_curr_idx % 8); 
+        success_curr_idx++;
+        neopixel_set_color(NEO_JEWEL, success_curr_idx % 6 + 1, success_curr_color); 
+        neopixel_set_color(NEO_RING, success_curr_idx % 16,  success_curr_color); 
+        neopixel_set_color(NEO_STICK, success_curr_idx % 8 ,success_curr_color); 
     }
     else if (failure_lights_on) {
         neopixel_clear_all(NEO_JEWEL);
@@ -127,7 +134,8 @@ static void start_game(void) {
 }
 static void complete_game(void); 
 static void handle_out_of_time(void) {
-
+    complete_game();
+    /*
     if (debug) printf("Time ran out.\n"); 
     is_game_running = false; 
     seg7_stop_timer(); 
@@ -138,7 +146,7 @@ static void handle_out_of_time(void) {
     is_game_complete = false; 
     failure_lights_on = false; 
     app_timer_start(game_end_flash_timer, APP_TIMER_TICKS(FAILURE_FLASH_INTERVAL_MS), NULL);
-    DFR0760_say("Boom"); 
+    DFR0760_say("Boom"); */
 }
 
 static void complete_game(void) {
