@@ -14,6 +14,7 @@
 #include "../keypad/keypad.h"
 
 #include "morse_puzzle.h"
+
 typedef enum {
     LED_OFF,
     LED_COLOR_WHITE,
@@ -21,14 +22,15 @@ typedef enum {
     LED_COLOR_GREEN
 } led_color_t;
 
+// Puzzle configuration
+#define SOLUTION_LENGTH 4
 APP_TIMER_DEF(loop_timer);
 
 static uint8_t sx1509_i2c_addr = 0; 
 static const morse_puzzle_pins_t* pins = NULL; 
 
-#define SOLUTION_LENGTH 4
+// Solution
 static char solution_str[SOLUTION_LENGTH + 1];
-//static char* solution_str = "";
 static bool is_puzzle_complete = false; 
 
 static bool debug = false; 
@@ -61,31 +63,27 @@ void morse_set_LED_off() {
 }
 
 // Helper function to check if keypad input matches solution
-
 static bool check_sequence(void){
-  //if (debug) {printf("MORSE: check_sequence called\n");}
-  //print_keypad_input();
   char* input = keypad_get_input();
   volatile uint8_t input_len = keypad_get_input_length();
   if (input_len < SOLUTION_LENGTH) {
-    //if (debug) {printf("MORSE: input length = %d\n", input_len);}
-    if (debug && input_len != 0) printf("Input: %s, Input Length: %d\n", input, input_len);
     return false;
   }
 
   if (strcmp(input, solution_str) != 0){ // strings not equal
+    if (debug) printf("MORSE: Failure\n");
+    if (debug) printf("Input: %s, Input Length: %d\n", input, input_len);
     morse_set_LED_red(); 
     keypad_clear_input_record();
-    if (debug) printf("Morse puzzle: Failure\n");
-    if (debug) printf("Input: %s, Input Length: %d\n", input, input_len);
     return false;
   }
   return true; 
 }
 
-// Helper function to generate a random solution
-void morse_solution_gen(void);
+static void morse_solution_gen(void);
 
+// Initialize morse puzzle (initialize drivers & pins)
+// Must be called at the start & should only be called once
 void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance, const morse_puzzle_pins_t* puzzle_pins, bool p_debug) {
   debug = p_debug;
   sx1509_i2c_addr = i2c_addr; 
@@ -106,16 +104,17 @@ void morse_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
   keypad_clear_input_record(); 
 }
 
+// Start one iteration of the puzzle (generate solution & reset); only call after init was called
 void morse_puzzle_start(void) {
   keypad_start_scanning(); 
-  morse_solution_gen(); //generate a random solution
+  morse_solution_gen(); 
   is_puzzle_complete = false; 
   morse_set_LED_off(); 
   keypad_clear_input_record();
 }
 
-
-void morse_solution_gen(void) {
+// Helper function to generate a random solution
+static void morse_solution_gen(void) {
   for (uint8_t i = 0; i < SOLUTION_LENGTH; i++) {
     solution_str[i] = '0' + (rand() % 10); // digits 0-9
   }
@@ -124,24 +123,24 @@ void morse_solution_gen(void) {
     if (debug) printf("MORSE: Solution generated: %s\n", solution_str);
 }
 
+// Continue playing existing puzzle instance; only call after start
 void morse_puzzle_continue(void* _unused) {
   keypad_start_scanning();
   // Reset if puzzle select is pressed
   if (!nrf_gpio_pin_read(pins->puzzle_select)) {
-    if (debug) printf("Morse Puzzle: Puzzle reset.\n");
+    if (debug) printf("MORSE: Puzzle reset.\n");
     stop_buzzer();
     play_morse_message(solution_str,SOLUTION_LENGTH); 
     keypad_clear_input_record(); 
     keypad_start_scanning(); 
     morse_set_LED_off(); 
-    //morse_set_LED_white(); //TODO: fix this. it is setting the led RED. but if i use morse_set_LED_green() it sets it to green idk
   }
   
-  // Check if keypad input matches 
+  // Check if keypad input matches: If yes, complete puzzle, else restart timer
   if (check_sequence()) {
     morse_set_LED_green(); 
     is_puzzle_complete = true; 
-    if (debug) printf("Morse puzzle: Success! \n");
+    if (debug) printf("MORSE: Success! \n");
     stop_buzzer(); 
     keypad_stop_scanning(); 
   }
@@ -150,6 +149,7 @@ void morse_puzzle_continue(void* _unused) {
   }
 }
 
+// End everything related to the morse puzzle
 void morse_puzzle_stop(void) {
   if (debug) printf("MORSE: Puzzle stopped.\n");
   stop_buzzer(); 
@@ -159,6 +159,7 @@ void morse_puzzle_stop(void) {
   if (!is_puzzle_complete) morse_set_LED_off(); 
 }
 
+// Return true iff the puzzle is complete
 bool morse_puzzle_is_complete(void) {
   return is_puzzle_complete;
 } 

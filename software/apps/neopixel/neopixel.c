@@ -103,7 +103,7 @@ static void prepare_sequence_data(neopixel_device_t device) {
   uint16_t pwm_idx = 0;
 
   // For ring & strip: send data in grb order, with msb first
-  // For jewel: ? 
+  // For jewel: send data in grbw order, with msb first
   for (int led = 0; led < led_count; led++) {
       uint8_t rgbw_data_seq[4] = { rgb_data[device][led].g, rgb_data[device][led].r, rgb_data[device][led].b , rgb_data[device][led].w};
       for (int c = 0; c < 4; c++) {
@@ -117,6 +117,11 @@ static void prepare_sequence_data(neopixel_device_t device) {
           combined_sequence[pwm_idx].channel_1 = 0;
           combined_sequence[pwm_idx].channel_2 = 0;
           combined_sequence[pwm_idx].channel_3 = 0;
+
+          /* Set appropriate duty cycle in combined_sequence: 
+              - only set channel corresponding to current device
+              - neopixel is active_low, so ? logic is reversed
+          */
           uint16_t pwm_val = ((rgbw_data_seq[c]>> bit) & 0x1) ? ZERO_HIGH : ONE_HIGH;
           switch (device) {
             case NEO_RING:  
@@ -142,6 +147,7 @@ static void prepare_sequence_data(neopixel_device_t device) {
   }
 }
 
+// Helper function: Start pwm playback of current sequence data
 static void neopixel_show(neopixel_device_t device) {
   prepare_sequence_data(device);
   pwm_sequence.length = BITS_PER_DEVICE(device) * 4;
@@ -154,6 +160,8 @@ static void neopixel_show(neopixel_device_t device) {
   nrf_delay_us(RESET_DELAY_US);
 }
 
+// Set color of led at led_index in device to color_name
+// if device does not exist, color does not exist or led_index too large for device, do nothing
 void neopixel_set_color(neopixel_device_t device, uint8_t led_index, color_name_t color_name) {
   if (device < NEO_DEV_COUNT && led_index < LED_COUNT[device] && color_name < COLOR_COUNT) {
     color_t c = COLOR_TABLE[color_name]; 
@@ -163,6 +171,8 @@ void neopixel_set_color(neopixel_device_t device, uint8_t led_index, color_name_
   neopixel_show(device);
 }
 
+// Set color of all LEDs in device to color_name
+// if device or color does not exist, do nothing
 void neopixel_set_color_all(neopixel_device_t device, color_name_t color_name) {
   if (device < NEO_DEV_COUNT && color_name < COLOR_COUNT) {
     int led_count = LED_COUNT[device];
@@ -173,6 +183,8 @@ void neopixel_set_color_all(neopixel_device_t device, color_name_t color_name) {
   neopixel_show(device);
 }
 
+// Turn off led at led_index in device
+// if device does not exist or led_index too large for device, do nothing
 void neopixel_clear(neopixel_device_t device, uint8_t led_index) {
    if (device < NEO_DEV_COUNT && led_index < LED_COUNT[device]) {
      neopixel_set_color(device, led_index, COLOR_BLACK);
@@ -180,6 +192,8 @@ void neopixel_clear(neopixel_device_t device, uint8_t led_index) {
   neopixel_show(device);
 }
 
+// Turn off all LEDs in device
+// if device does not exist, do nothing
 void neopixel_clear_all(neopixel_device_t device) {
   if (device < NEO_DEV_COUNT) {
     neopixel_set_color_all(device, COLOR_BLACK);
@@ -187,7 +201,7 @@ void neopixel_clear_all(neopixel_device_t device) {
   neopixel_show(device);
 }
 
-// Helper function to print the contents of the combined_sequence buffer
+// Helper function to print the contents of the combined_sequence buffer - AI generated
 void print_combined_sequence(int length) {
     printf("Combined sequence contents (length=%d):\n", length);
     for (int i = 0; i < length; i++) {

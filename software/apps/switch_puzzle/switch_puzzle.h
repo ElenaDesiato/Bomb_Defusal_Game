@@ -7,13 +7,13 @@ typedef struct {
     uint8_t puzzle_select;
 } switch_puzzle_pins_t; 
 
-// Initialize puzzle. Only call once.
+// Initialize puzzle. Only call once at the start.
 void switch_puzzle_init(const switch_puzzle_pins_t* pins, bool debug);
 
-// Start puzzle (reset puzzle state & generate new solution)
+// Start puzzle (reset puzzle state & generate new solution). Only call after init.
 void switch_puzzle_start(void); 
 
-// Continue playing existing puzzle instance
+// Continue playing existing puzzle instance. Only call after start.
 void switch_puzzle_continue(void* _unused); 
 
 // End everything related to the puzzle.

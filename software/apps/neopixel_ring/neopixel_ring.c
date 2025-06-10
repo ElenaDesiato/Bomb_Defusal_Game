@@ -2,6 +2,9 @@
 // Code Framework reference: Lab5 PWM-SquareWaveTone & Slides about NeoPixel ring
 // Use PWM signals to drive the NeoPixel Ring
 
+// OUTDATED VERSION: See neopixel.c/neopixel.h for generalized driver
+// (that can also handle stick & jewel in addition to ring)
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -50,6 +53,7 @@ static nrf_pwm_sequence_t pwm_sequence = {
   .end_delay = 0,
 };
 
+// Helper function for debugging - AI generated
 static void print_sequence_data() {
   int bits_per_led = 24;
   int led_count = 16; 
@@ -64,6 +68,7 @@ static void print_sequence_data() {
   printf("\n");
 }
 
+// Initialize Neopixel ring
 void neopixel_ring_init(uint16_t neopixel_pin_param) {
   neopixel_pin = neopixel_pin_param;
   nrf_gpio_cfg_output(neopixel_pin);
@@ -87,12 +92,6 @@ void neopixel_ring_init(uint16_t neopixel_pin_param) {
   neopixel_clear_all();
 }
 
-void neopixel_set_rgb(uint8_t led,uint8_t r, uint8_t g, uint8_t b) {
-    rgb[led].r = r;
-    rgb[led].g = g;
-    rgb[led].b = b;
-}
-
 /* Specific numbers are taken from: https://wp.josh.com/2014/05/13/ws2812-neopixels-are-not-so-finicky-once-you-get-to-know-them/
   - timer frequency: 16 MHz
   - desired PWM signal frequency: 800 KHz - period is 1.2us
@@ -104,6 +103,7 @@ void neopixel_set_rgb(uint8_t led,uint8_t r, uint8_t g, uint8_t b) {
   - countertop = input clock/output frequency  = 16 000 000 / 800 000 = 20
 */
 
+// Helper function: Start pwm playback of current sequence data
 static void neopixel_show(void) {
   uint16_t pwm_index = 0;
 
@@ -126,19 +126,29 @@ static void neopixel_show(void) {
 
   pwm_sequence.length = 16*24;
   nrfx_pwm_simple_playback(&PWM_INST, &pwm_sequence, 1, NRFX_PWM_FLAG_STOP);
-  
+
+  // Source: ChatGPT ( busy-wait loop that continuously checks if the PWM peripheral has finished its playback operation)
   while (!nrf_pwm_event_check(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED));
   nrf_pwm_event_clear(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED);
 
   nrf_delay_us(RESET_DELAY_US);
 }
 
+// Set specified LED to RGB value
+void neopixel_set_rgb(uint8_t led,uint8_t r, uint8_t g, uint8_t b) {
+    rgb[led].r = r;
+    rgb[led].g = g;
+    rgb[led].b = b;
+}
+
+// Set specified LED to RGB color
 void neopixel_set_color(uint8_t led, color_name_t color) {
   color_t rgb_value = COLOR_TABLE[color];
   neopixel_set_rgb(led, rgb_value.r, rgb_value.g, rgb_value.b);
   neopixel_show();
 }
 
+// Set entire ring to specified color
 void neopixel_set_color_all(color_name_t color) {
   for (uint8_t i = 0; i < 16; i++) {
     neopixel_set_color(i, color);
@@ -146,11 +156,13 @@ void neopixel_set_color_all(color_name_t color) {
   neopixel_show();
 }
 
+// Turn off specified led
 void neopixel_clear(uint8_t led) {
   neopixel_set_color(led, COLOR_BLACK);
   neopixel_show();
 }
 
+// Turn off all ring LEDs
 void neopixel_clear_all(void) {
   for (uint8_t i = 0; i < 16; i++) {
     neopixel_set_color(i, COLOR_BLACK);

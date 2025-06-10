@@ -22,7 +22,7 @@
 #define CHAR_SPACE_LENGTH (10*TIME_UNIT_MS)            // space between characters
 #define WORD_SPACE_LENGTH (7*TIME_UNIT_MS)            // space between words    
 
-#define MORSE_NOTE_FREQUENCY 700                      // Frequency used in beeps for morse code
+#define MORSE_NOTE_FREQUENCY 880                     // Frequency used in beeps for morse code: A_5; higher to hear better
 
 APP_TIMER_DEF(symbol_timer);
 
@@ -120,7 +120,7 @@ void lilybuzzer_init(uint8_t buzzer_pin) {
     }; 
     nrfx_pwm_init(&PWM_INST, &config, NULL);
 
-    sequence_data[0]= 0.5 * (500000/MORSE_NOTE_FREQUENCY); 
+    sequence_data[0]= 0.9 * (500000/MORSE_NOTE_FREQUENCY); 
 
     //app_timer_init(); 
     ret_code_t err = app_timer_create(&symbol_timer, APP_TIMER_MODE_SINGLE_SHOT, play_curr_symbol);
