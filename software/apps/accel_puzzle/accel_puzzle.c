@@ -13,9 +13,10 @@
 #include "nrf_delay.h"
 #include "nrf_twi_mngr.h"
 #include "microbit_v2.h"
+#include "rng.h"
 
 // Puzzle config. macros
-#define MAX_INSTRUCTIONS 5
+#define MAX_INSTRUCTIONS 8
 #define NUM_INSTRUCTIONS_TO_PLAY 3
 
 #define ANGLE_TOLERANCE 20
@@ -28,7 +29,7 @@
 APP_TIMER_DEF(ACCEL_GAME_HANDLER_TIMER);
 APP_TIMER_DEF(ACCEL_CHECK_TIMER);
 APP_TIMER_DEF(HOLD_FEEDBACK_TIMER); 
-APP_TIMER_DEF(HOLD_FAIL_TIMER); // for flashing red on NEOstick
+APP_TIMER_DEF(HOLD_FAIL_TIMER); 
 
 // Puzzle configuration
 static uint8_t sx1509_i2c_addr = 0;
@@ -42,9 +43,13 @@ static void setup_instructions() {
   defined_instructions[1] = (accel_puzzle_instruction_t){.pitch = 0, .roll = 45};
   defined_instructions[2] = (accel_puzzle_instruction_t){.pitch = -45, .roll = 0};
   defined_instructions[3] = (accel_puzzle_instruction_t){.pitch = 0, .roll = -45};
-  defined_instructions[4] = (accel_puzzle_instruction_t){.pitch = 30, .roll = -30};
-  // TODO: add more instructions
+  defined_instructions[4] = (accel_puzzle_instruction_t){.pitch = 0, .roll = 0};
+  defined_instructions[5] = (accel_puzzle_instruction_t){.pitch = 0, .roll = -90};
+  defined_instructions[6] = (accel_puzzle_instruction_t){.pitch = 0, .roll = 90};
+  defined_instructions[7] = (accel_puzzle_instruction_t){.pitch = -90, .roll = 0};
 }
+
+static accel_puzzle_instruction_t chosen_instructions[NUM_INSTRUCTIONS_TO_PLAY]; 
 
 // Puzzle states
 static bool puzzle_initialized = false;
@@ -101,7 +106,7 @@ static void hold_check_handler(void* _unused) {
     // get current angles from LSM6DSO
     float pitch = lsm6dso_get_pitch();
     float roll = lsm6dso_get_roll();
-    accel_puzzle_instruction_t target = defined_instructions[current_step];
+    accel_puzzle_instruction_t target = chosen_instructions[current_step];
 
     if (!is_angle_in_tolerance(pitch, target.pitch) || !is_angle_in_tolerance(roll, target.roll)) {
         pose_is_held = false;
@@ -171,6 +176,9 @@ void accel_puzzle_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi_mgr_instance,
     setup_instructions();
     puzzle_initialized = true;
     neopixel_clear_all(NEO_STICK);
+
+    rng_init(); 
+    srand(rng_get8());
     if (debug) printf("ACCEL: Puzzle module initialized.\n");
 }
 
@@ -179,6 +187,16 @@ bool accel_puzzle_start(void) {
     if (puzzle_active) return false; // game is already running, why start
     reset_puzzle();
     lsm6dso_start(); 
+    for (int c = 0; c < NUM_INSTRUCTIONS_TO_PLAY; c++) {
+        chosen_instructions[c] = defined_instructions[(rand() % 8)]; 
+    }
+    if (debug) {
+        printf("All instructions: \n"); 
+        for (int c = 0; c < NUM_INSTRUCTIONS_TO_PLAY; c++) {
+            printf("Roll %d, Pitch %d\n", chosen_instructions[c].roll, chosen_instructions[c].pitch); 
+        }
+        printf("\n");
+    }
     if (debug) printf("ACCEL: Puzzle started.\n");
     return true;
 }
@@ -227,23 +245,40 @@ void accel_puzzle_handler(void* _unused) {
             return;
         }
 
-    accel_puzzle_instruction_t target = defined_instructions[current_step];
+    accel_puzzle_instruction_t target = chosen_instructions[current_step];
 
     // give instruction via TTS module
     if (!step_announced) {
         char speech_buf[128];
-        if (target.pitch != 0) {
-            if (target.pitch > 0) {
-                snprintf(speech_buf, sizeof(speech_buf), "Downward %d", target.pitch);
-            } else {
-                snprintf(speech_buf, sizeof(speech_buf), "Upward %d", target.pitch);
+    switch (target.pitch) {
+        case 45:
+            snprintf(speech_buf, sizeof(speech_buf), "Downward 45");
+            break;
+        case -45:
+            snprintf(speech_buf, sizeof(speech_buf), "Upward 45");
+            break;
+        case -90:
+            snprintf(speech_buf, sizeof(speech_buf), "Downward 90");
+            break;
+        case 0:
+            switch (target.roll) {
+                case 45:
+                    snprintf(speech_buf, sizeof(speech_buf), "Left 45");
+                    break;
+                case -45:
+                    snprintf(speech_buf, sizeof(speech_buf), "Right 45");
+                    break;
+                case 90:
+                    snprintf(speech_buf, sizeof(speech_buf), "Left 90");
+                    break;
+                case -90:
+                    snprintf(speech_buf, sizeof(speech_buf), "Right 90");
+                    break;
+                case 0:
+                    snprintf(speech_buf, sizeof(speech_buf), "Horizontal");
+                    break;
             }
-        } else {
-            if (target.roll < 0) {
-                snprintf(speech_buf, sizeof(speech_buf), "Right %d ", target.roll);
-            } else {
-                snprintf(speech_buf, sizeof(speech_buf), "Left %d ", target.roll);
-            }
+            break;
         }
 
         DFR0760_say(speech_buf);
