@@ -14,6 +14,7 @@
 #include "nrf_twi_mngr.h"
 #include "microbit_v2.h"
 
+// Puzzle config. macros
 #define MAX_INSTRUCTIONS 5
 #define NUM_INSTRUCTIONS_TO_PLAY 3
 
@@ -23,15 +24,26 @@
 
 #define DEBUG_PRINT_INTERVAL_MS 1000 // used for the sophisticated debug print
 
+// Timers
 APP_TIMER_DEF(ACCEL_GAME_HANDLER_TIMER);
 APP_TIMER_DEF(ACCEL_CHECK_TIMER);
 APP_TIMER_DEF(HOLD_FEEDBACK_TIMER); 
 APP_TIMER_DEF(HOLD_FAIL_TIMER); // for flashing red on NEOstick
 
+// Puzzle configuration
 static uint8_t sx1509_i2c_addr = 0;
 static const accel_puzzle_pins_t* puzzle_pins;
 static bool debug = true;
+static void setup_instructions() {
+  defined_instructions[0] = (accel_puzzle_instruction_t){.pitch = 45, .roll = 0};
+  defined_instructions[1] = (accel_puzzle_instruction_t){.pitch = 0, .roll = 45};
+  defined_instructions[2] = (accel_puzzle_instruction_t){.pitch = -45, .roll = 0};
+  defined_instructions[3] = (accel_puzzle_instruction_t){.pitch = 0, .roll = -45};
+  defined_instructions[4] = (accel_puzzle_instruction_t){.pitch = 30, .roll = -30};
+  // TODO: add more instructions
+}
 
+// Puzzle states
 static bool puzzle_initialized = false;
 static bool puzzle_active = false;
 static bool puzzle_complete = false;
@@ -41,6 +53,8 @@ static volatile bool hold_timer_running = false;
 
 static bool step_announced = false;
 static bool timing_hold = false;
+
+// Global helper variables
 static uint32_t hold_start_ticks = 0;
 
 static uint32_t last_debug_print_ticks = 0;
@@ -51,9 +65,10 @@ static int steps_done = 0; // aka number of instructions completed
 
 static uint8_t hold_led_index = 0;
 
-void accel_puzzle_handler(void* unused);
+void accel_puzzle_handler(void* _unused);
 
-static void hold_feedback_handler(void *unused) {
+// Callback function called when HOLD_FEEDBACK_TIMER is triggered
+static void hold_feedback_handler(void* _unused) {
     if (hold_led_index < 8) {
         neopixel_set_color(NEO_STICK, hold_led_index, COLOR_GREEN);
         hold_led_index++;
@@ -65,29 +80,20 @@ static void hold_feedback_handler(void *unused) {
     }
 }
 
-void hold_fail_handler(void *unused) {
+// Callback function called when HOLD_FAIL_TIMER is triggered
+void hold_fail_handler(void* _unused) {
     app_timer_stop(HOLD_FAIL_TIMER);
     hold_led_index = 0;
     neopixel_clear_all(NEO_STICK);
 }
 
-static void setup_instructions() {
-  defined_instructions[0] = (accel_puzzle_instruction_t){.pitch = 45, .roll = 0};
-  defined_instructions[1] = (accel_puzzle_instruction_t){.pitch = 0, .roll = 45};
-  defined_instructions[2] = (accel_puzzle_instruction_t){.pitch = -45, .roll = 0};
-  defined_instructions[3] = (accel_puzzle_instruction_t){.pitch = 0, .roll = -45};
-  defined_instructions[4] = (accel_puzzle_instruction_t){.pitch = 30, .roll = -30};
-  // TODO: add more instructions
+// Helper function: returns true iff current angle is close enough to target angle
+static bool is_angle_in_tolerance(float current_angle, float target_angle) {
+  return fabs(current_angle - target_angle) <= ANGLE_TOLERANCE; 
 }
 
-static bool is_angle_in_tolerance(float current_value, float target_value) {
-  return fabs(current_value - target_value) <= ANGLE_TOLERANCE; // consider wrap around i guess
-}
-
-// hold_check : check if current pose is held in the target angles
-// if we detected that the pose is held, we set pose_is_held to true & start the hold timer (ACCEL_CHECK_TIMER)
-
-static void hold_check_handler(void* unused) {
+// Callback function called when ACCEL_CHECK_TIMER is triggered (check if current pose is being held at target angle)
+static void hold_check_handler(void* _unused) {
     if (!puzzle_active || !hold_timer_running) return;
     if (!lsm6dso_is_ready()) {
         pose_is_held = false;
@@ -181,7 +187,7 @@ void accel_puzzle_stop(void) {
     }
 }
 
-void accel_puzzle_handler(void* unused) {
+void accel_puzzle_handler(void* _unused) {
     if (!puzzle_active) {return;}
 
     if (puzzle_complete) {return;}
@@ -286,7 +292,7 @@ void accel_puzzle_handler(void* unused) {
     }
 }
 
-void accel_puzzle_continue(void* unused) {
+void accel_puzzle_continue(void* _unused) {
     if (puzzle_active || puzzle_complete) { // preventing firing the handler timer multiple times
         return;
     }
