@@ -34,6 +34,9 @@ void DFR0760_set_volume(int volume);
 // Send speech synthesis command to DFR0760
 void DFR0760_say(const char* text);
 
+// Returns true iff speaking
+bool DFR0760_is_speaking(void);
+
 // Stop speech synthesis
 void DFR0760_stop(void);
 

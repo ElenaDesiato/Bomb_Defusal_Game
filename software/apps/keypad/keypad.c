@@ -129,7 +129,6 @@ void print_keypad_input(void) {
 
 // stop scanning the keypad
 void keypad_stop_scanning(void) {
-  if (debug) printf("Stop scanning called \n");
   is_scanning = false;
   app_timer_stop(keypad_scanning_timer); // Stop the scanning timer
 }

@@ -22,29 +22,32 @@
 #define FEEDBACK_DURATION_MS 1000  
 #define BUTTON_DEBOUNCE_DELAY_MS 50  // Debounce delay for button
 
+// Timers
 APP_TIMER_DEF(RGB_PUZZLE_HANDLER_TIMER); // Main timer as puzzle manager (this keeps calling the puzzle handler)
 APP_TIMER_DEF(SOL_SEQ_SHOW_TIMER); // timer for showing the instruction sequence
 APP_TIMER_DEF(FEEDBACK_SHOW_TIMER); // timer for showing feedback (success or fail)
 
+// Config
 static bool debug = true;
-
 static uint8_t sx1509_i2c_addr = 0;
 static const rgb_puzzle_pins_t* puzzle_pins = NULL;
+static uint8_t button_pins[4];  // Stores pin numbers for R,G,B,Y buttons
 
+// Solution
+static rgb_puzzle_color_t curr_sol_seq[SOL_LENGTH];
+
+// States
 static bool puzzle_initialized = false;
 static bool puzzle_active = false;
 static bool puzzle_complete = false;
 
-static rgb_puzzle_color_t curr_sol_seq[SOL_LENGTH];
+// Game Variables
 static int curr_step = 0;      // Current round number 
 static int display_idx = 0;      // Index for showing current instruction sequence
-
 static rgb_puzzle_color_t player_input_seq[SOL_LENGTH];
 static int input_idx = 0;       // current input idx (starts from 0)
 
-static uint8_t button_pins[4];  // Stores pin numbers for R,G,B,Y buttons
 static bool last_button_pressed_states[4]; // true = was pressed, false = was released. used for debouncing
-
 static rgb_puzzle_fsm_state_t curr_state = IDLE;
 
 void rgb_puzzle_handler(void* unused);
@@ -169,9 +172,13 @@ void rgb_puzzle_start() {
     if (puzzle_active) return;
     curr_step = 0;
     input_idx = 0;
+    display_idx = 0; 
     puzzle_complete = false;
     puzzle_active = false;
     curr_state = IDLE;
+    for (int i = 0; i < SOL_LENGTH; i++) {
+        player_input_seq[i] = COLOR_BLACK;
+    }
     neopixel_clear_all(NEO_JEWEL);
     if (debug) printf("RGB: Puzzle Start.\n");
 }
@@ -180,7 +187,7 @@ void rgb_puzzle_start() {
 void rgb_puzzle_stop() {
     if (!puzzle_active) return;
 
-    if (debug) printf("RGB: Puzzle Stop.\n");
+    if (debug) printf("RGB: Puzzle Stopped.\n");
 
     app_timer_stop(RGB_PUZZLE_HANDLER_TIMER);
     app_timer_stop(SOL_SEQ_SHOW_TIMER);

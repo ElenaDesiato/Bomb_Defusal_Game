@@ -59,13 +59,8 @@ static bool timing_hold = false;
 
 // Global helper variables
 static uint32_t hold_start_ticks = 0;
-
 static uint32_t last_debug_print_ticks = 0;
-
-
 static int current_step = 0;
-static int steps_done = 0; // aka number of instructions completed
-
 static uint8_t hold_led_index = 0;
 
 void accel_puzzle_handler(void* _unused);
@@ -143,9 +138,16 @@ static void reset_step() {
 // reset all the puzzle state variables
 static void reset_puzzle() {
     if (debug) printf("ACCEL: Puzzle reset.\n");
-    steps_done = 0;
-    current_step = 0;
+    puzzle_active = false;
     puzzle_complete = false;
+    pose_is_held = false;
+    hold_timer_running = false;
+    step_announced = false;
+    timing_hold = false;
+    hold_start_ticks = 0;
+    last_debug_print_ticks = 0;
+    current_step = 0;
+    hold_led_index = 0;
     neopixel_clear_all(NEO_STICK);
     reset_step();
 }
@@ -177,29 +179,34 @@ bool accel_puzzle_start(void) {
     if (puzzle_active) return false; // game is already running, why start
     reset_puzzle();
     lsm6dso_start(); 
-
     if (debug) printf("ACCEL: Puzzle started.\n");
     return true;
 }
 
 // End everything related to the puzzle.
 void accel_puzzle_stop(void) {
-    if (!puzzle_active) return;
-
     if (debug) printf("ACCEL: Puzzle stopped.\n");
     puzzle_active = false;
+    pose_is_held = false;
+    hold_timer_running = false;
+    step_announced = false;
+    timing_hold = false;
+    hold_start_ticks = 0;
+    last_debug_print_ticks = 0;
+    hold_led_index = 0;
     reset_step();
     app_timer_stop(ACCEL_GAME_HANDLER_TIMER);
     app_timer_stop(HOLD_FEEDBACK_TIMER);
     app_timer_stop(HOLD_FAIL_TIMER);
     lsm6dso_stop(); 
+    DFR0760_stop(); 
     if (puzzle_complete) {
         neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
     }
     else {
         neopixel_clear_all(NEO_STICK);
-        hold_led_index = 0;
     }
+    hold_led_index = 0; 
 }
 
 // The main puzzle state manager handler
@@ -209,7 +216,7 @@ void accel_puzzle_handler(void* _unused) {
     if (puzzle_complete) {return;}
 
     // return & mark as complete if finished instructions >= NUM_INSTRUCTIONS_TO_PLAY
-    if (steps_done >= NUM_INSTRUCTIONS_TO_PLAY) {
+    if (current_step >= NUM_INSTRUCTIONS_TO_PLAY) {
             if (!puzzle_complete) {
                 if (debug) printf("\n");
                 if (debug) printf("ACCEL: Puzzle COMPLETED!\n");
@@ -227,21 +234,20 @@ void accel_puzzle_handler(void* _unused) {
         char speech_buf[128];
         if (target.pitch != 0) {
             if (target.pitch > 0) {
-                snprintf(speech_buf, sizeof(speech_buf), "Downward : %d", target.pitch);
+                snprintf(speech_buf, sizeof(speech_buf), "Downward %d", target.pitch);
             } else {
-                snprintf(speech_buf, sizeof(speech_buf), "Upward : %d", target.pitch);
+                snprintf(speech_buf, sizeof(speech_buf), "Upward %d", target.pitch);
             }
         } else {
             if (target.roll < 0) {
-                snprintf(speech_buf, sizeof(speech_buf), "Right : %d ", target.roll);
+                snprintf(speech_buf, sizeof(speech_buf), "Right %d ", target.roll);
             } else {
-                snprintf(speech_buf, sizeof(speech_buf), "Left : %d ", target.roll);
+                snprintf(speech_buf, sizeof(speech_buf), "Left %d ", target.roll);
             }
         }
 
-
         DFR0760_say(speech_buf);
-        if (debug) printf("ACCEL: Instruction %d: Target P:%d, R:%d\n", steps_done + 1, target.pitch, target.roll);
+        if (debug) printf("ACCEL: Instruction %d: Target P:%d, R:%d\n", current_step + 1, target.pitch, target.roll);
         step_announced = true;
         return;
     }
@@ -253,12 +259,12 @@ void accel_puzzle_handler(void* _unused) {
     
     // Not into the hold yet
     if (!timing_hold) {
-        if (!lsm6dso_is_ready()) return;  // I'm thinking about whether we need to decrease the ACC_MEASUREMENT_INTERVAL for LSM6DSO
+        if (!lsm6dso_is_ready()) return;  // might need to decrease the ACC_MEASUREMENT_INTERVAL for LSM6DSO
 
         float live_pitch = lsm6dso_get_pitch();
         float live_roll = lsm6dso_get_roll();
 
-        // Super sophisticated debug print, idk how it works but it does
+        // Super sophisticated debug print
         // Source: chatGPT
         if (debug) {
             uint32_t current_ticks, diff_ticks;
@@ -274,9 +280,8 @@ void accel_puzzle_handler(void* _unused) {
         // check if pitch & roll angles hold
         if (is_angle_in_tolerance(live_pitch, target.pitch) && is_angle_in_tolerance(live_roll, target.roll)) {
             if (debug) printf("\n");
-            //DFR0760_say("Hold it.");
             start_hold_timer();
-            hold_start_ticks = app_timer_cnt_get();  // record the start time of the hold
+            hold_start_ticks = app_timer_cnt_get(); 
             timing_hold = true;
         }
         return;
@@ -302,8 +307,7 @@ void accel_puzzle_handler(void* _unused) {
         if (elapsed_ticks >= APP_TIMER_TICKS(HOLD_TIME_MS)) {
             if (debug) printf("\n");
             neopixel_clear_all(NEO_STICK);
-            DFR0760_say("Good.");
-            steps_done++;
+            DFR0760_say("Good");
             current_step++;
             reset_step();
         }

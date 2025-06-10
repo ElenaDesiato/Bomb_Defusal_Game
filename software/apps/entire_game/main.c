@@ -19,10 +19,10 @@
 static bool debug = true; 
 
 // Game parameters
-#define GAME_LENGTH_SEC 5
+#define GAME_LENGTH_SEC 3*60
 #define TTS_VOLUME_LEVEL 1
-#define FAILURE_FLASH_INTERVAL_MS 250
-#define SUCCESS_COLOR_INTERVAL_MS 100
+#define FAILURE_FLASH_INTERVAL_MS 150
+#define SUCCESS_COLOR_INTERVAL_MS 250
 
 APP_TIMER_DEF(game_end_flash_timer);
 
@@ -84,21 +84,14 @@ static bool is_game_complete = false;
 static bool failure_lights_on = false;
 static int success_curr_color = COLOR_BLACK; 
 
-static int success_curr_idx = 0;
-
 // Flash timer callback
 static void toggle_lights(void* _unused) {
     if (is_game_complete) { 
         morse_set_LED_green(); 
         success_curr_color = (success_curr_color + 1) % 8;
-
-        neopixel_clear(NEO_JEWEL, success_curr_idx % 6 + 1); 
-        neopixel_clear(NEO_RING, success_curr_idx % 16); 
-        neopixel_clear(NEO_STICK, success_curr_idx % 8); 
-        success_curr_idx++;
-        neopixel_set_color(NEO_JEWEL, success_curr_idx % 6 + 1, success_curr_color); 
-        neopixel_set_color(NEO_RING, success_curr_idx % 16,  success_curr_color); 
-        neopixel_set_color(NEO_STICK, success_curr_idx % 8 ,success_curr_color); 
+        neopixel_set_color_all(NEO_JEWEL,success_curr_color); 
+        neopixel_set_color_all(NEO_RING,success_curr_color); 
+        neopixel_set_color_all(NEO_STICK,success_curr_color); 
     }
     else if (failure_lights_on) {
         neopixel_clear_all(NEO_JEWEL);
@@ -116,13 +109,25 @@ static void toggle_lights(void* _unused) {
 }
 
 // Helper functions to take care of basic game logic (starting game, completing game, running out of time)
+
+static void stop_everything(void) {
+    is_game_running = false; 
+    seg7_stop_timer(); 
+    switch_puzzle_stop();
+    accel_puzzle_stop();
+    rgb_puzzle_stop();
+    morse_puzzle_stop(); 
+}
+
 static void start_game(void) {
-    if (debug) printf("Timer started.\n"); 
+    if (debug) printf("Game STARTED.\n"); 
+    app_timer_stop(game_end_flash_timer); 
     is_game_complete = false; 
     is_game_running = true; 
     morse_puzzle_start();
     switch_puzzle_start(); 
     rgb_puzzle_start(); 
+    accel_puzzle_start(); 
 
     neopixel_clear_all(NEO_JEWEL);
     neopixel_clear_all(NEO_RING);
@@ -134,11 +139,8 @@ static void start_game(void) {
 }
 static void complete_game(void); 
 static void handle_out_of_time(void) {
-    complete_game();
-    /*
     if (debug) printf("Time ran out.\n"); 
-    is_game_running = false; 
-    seg7_stop_timer(); 
+    stop_everything(); 
     neopixel_set_color_all(NEO_RING, COLOR_RED);
     neopixel_set_color_all(NEO_STICK, COLOR_RED);
     neopixel_set_color_all(NEO_JEWEL, COLOR_RED);
@@ -146,16 +148,17 @@ static void handle_out_of_time(void) {
     is_game_complete = false; 
     failure_lights_on = false; 
     app_timer_start(game_end_flash_timer, APP_TIMER_TICKS(FAILURE_FLASH_INTERVAL_MS), NULL);
-    DFR0760_say("Boom"); */
+    DFR0760_say("Boom");  
 }
 
 static void complete_game(void) {
     if (debug) printf("Game successfully completed!\n"); 
-    is_game_running = false; 
-    seg7_stop_timer(); 
+    stop_everything(); 
+    /*
     neopixel_set_color_all(NEO_RING, COLOR_GREEN);
     neopixel_set_color_all(NEO_STICK, COLOR_GREEN);
     neopixel_set_color_all(NEO_JEWEL, COLOR_GREEN);
+    */
     morse_set_LED_green();
     is_game_complete = true; 
     success_curr_color = COLOR_BLACK; 
@@ -202,6 +205,7 @@ int main(void) {
 
     // Initialize TTS
     DFR0760_init(&twi_mngr_instance); 
+    nrf_delay_ms(100);
     DFR0760_set_volume(TTS_VOLUME_LEVEL);
 
     // Reset all LEDs to be off

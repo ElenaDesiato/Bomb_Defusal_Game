@@ -128,6 +128,7 @@ void DFR0760_wait_for_speech_to_finish(void) {
 // send a text to the DFR0760 module to start speech synthesis
 void DFR0760_say(const char *text) {
     uint16_t length = strlen(text);
+    printf("DFR0760_say: Text: \"%s\" (len: %u)\n", text, length);
     if (length == 0) return;
     if (length > 250) {
         printf("Error: Text is too long.\n");
@@ -157,9 +158,22 @@ void DFR0760_say(const char *text) {
     
     memcpy(&head[5], text, length);
     //printf("DFR0760: Saying: \"%s\" (len: %u, cmd:0x%02X, enc:0x%02X)\n", text, length, head[3], head[4]);
-    if(i2c_write_bytes(DFR0760_ADDR, head, length + 5) == NRF_SUCCESS) {
-        DFR0760_wait_for_speech_to_finish();
+    ret_code_t result = i2c_write_bytes(DFR0760_ADDR, head, length + 5);
+    if (result != NRF_SUCCESS) {
+        printf("DFR0760_say: Failed to send command (error 0x%lX)\n", (unsigned long)result);
     }
+    //if(i2c_write_bytes(DFR0760_ADDR, head, length + 5) == NRF_SUCCESS) {
+   //     DFR0760_wait_for_speech_to_finish(); // try to make non-blocking
+    //}
+}
+
+// Returns true iff module is currently speaking
+bool DFR0760_is_speaking(void) {
+    uint8_t ack_val = 0;
+    if (i2c_read_bytes(DFR0760_ADDR, &ack_val, 1) == NRF_SUCCESS) {
+        return (ack_val == ACK_SYNTHESIS_ACTIVE_OR_START);
+    }
+    return false;
 }
 
 // Set the volume of the DFR0760 module
