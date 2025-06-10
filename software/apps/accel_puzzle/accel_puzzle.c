@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "nrf_log.h"
+#include "nrf_log.h" // Source: ChatGPT (used in the debug print. see inline comments at line 239)
 #include "app_error.h"
 #include "../neopixel/neopixel.h"
 
@@ -84,10 +84,6 @@ static bool is_angle_in_tolerance(float current_value, float target_value) {
   return fabs(current_value - target_value) <= ANGLE_TOLERANCE; // consider wrap around i guess
 }
 
-
-// FYI: after finishing the code, I realized that my naming scheme is kinda poor and might be confusing
-// so I will try to explain it here:
-//
 // hold_check : check if current pose is held in the target angles
 // if we detected that the pose is held, we set pose_is_held to true & start the hold timer (ACCEL_CHECK_TIMER)
 
@@ -207,15 +203,15 @@ void accel_puzzle_handler(void* unused) {
         char speech_buf[128];
         if (target.pitch != 0) {
             if (target.pitch > 0) {
-                snprintf(speech_buf, sizeof(speech_buf), "Hold. Downward Degree: %d", target.pitch);
+                snprintf(speech_buf, sizeof(speech_buf), "Downward : %d", target.pitch);
             } else {
-                snprintf(speech_buf, sizeof(speech_buf), "Hold. Upward Degree: %d", target.pitch);
+                snprintf(speech_buf, sizeof(speech_buf), "Upward : %d", target.pitch);
             }
         } else {
             if (target.roll < 0) {
-                snprintf(speech_buf, sizeof(speech_buf), "Turn Right Degree: %d ", target.roll);
+                snprintf(speech_buf, sizeof(speech_buf), "Right : %d ", target.roll);
             } else {
-                snprintf(speech_buf, sizeof(speech_buf), "Turn Left Degree: %d ", target.roll);
+                snprintf(speech_buf, sizeof(speech_buf), "Left : %d ", target.roll);
             }
         }
 
