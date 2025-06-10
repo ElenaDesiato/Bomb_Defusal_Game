@@ -147,6 +147,7 @@ static void neopixel_show(neopixel_device_t device) {
   pwm_sequence.length = BITS_PER_DEVICE(device) * 4;
   nrfx_pwm_simple_playback(&PWM_INST, &pwm_sequence, 1, NRFX_PWM_FLAG_STOP);
   
+  // Source: ChatGPT ( busy-wait loop that continuously checks if the PWM peripheral has finished its playback operation)
   while (!nrf_pwm_event_check(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED));
   nrf_pwm_event_clear(PWM_INST.p_registers, NRF_PWM_EVENT_STOPPED);
 

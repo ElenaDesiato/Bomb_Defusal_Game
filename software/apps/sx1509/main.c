@@ -12,7 +12,6 @@
 
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 1, 0);
 
-// This is basically just test code for the gpio expander driver
 int main(void) {
   printf("Board started!\n");
 

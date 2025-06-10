@@ -4,8 +4,6 @@
 #include <math.h>
 
 #include "app_timer.h"
-APP_TIMER_DEF(keypad_scanning_timer);
-
 #include "nrf_delay.h"
 #include "nrf_twi_mngr.h"
 
@@ -13,6 +11,8 @@ APP_TIMER_DEF(keypad_scanning_timer);
 #include "../sx1509/sx1509.h"
 
 #define MAX_RECORD_LENGTH 10
+
+APP_TIMER_DEF(keypad_scanning_timer);
 
 static const uint8_t* row_pins = NULL; 
 static const uint8_t* col_pins = NULL;

@@ -58,7 +58,6 @@ static const char* get_color_name_str(rgb_puzzle_color_t color) {
     }
 }
 
-// NEW: Helper function to clear the outer ring LEDs
 static void clear_outer_leds() {
     for (int i = 0; i < NUM_OUTER_LEDS; i++) {
         neopixel_clear(NEO_JEWEL, NEOPIXEL_OUTER_LED_START + i);

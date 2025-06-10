@@ -1,4 +1,9 @@
 // DFR0760.c
+// Driver for DFR0760 Text-to-Speech Module
+// Reference code:
+// 1. Lab6 I2C Sensors
+// 2. DFRobot_SpeechSynthesis_V2.cpp from DFRobot
+// 3. ChatGPT (See inline comments for details)
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -25,7 +30,7 @@ static ret_code_t i2c_write_bytes(uint8_t i2c_addr, const uint8_t *data, size_t 
     if (i2c_manager == NULL) return NRF_ERROR_INVALID_STATE;
     nrf_twi_mngr_transfer_t const write_transfer = NRF_TWI_MNGR_WRITE(i2c_addr, data, length, 0);
     ret_code_t result = nrf_twi_mngr_perform(i2c_manager, NULL, &write_transfer, 1, NULL);
-    if (result != NRF_SUCCESS) {
+    if (result != NRF_SUCCESS) {  
         //printf("DFR0760: I2C write failed! Error: 0x%lX\n", (unsigned long)result);
     }
     return result;
@@ -79,6 +84,7 @@ void DFR0760_wait_for_speech_to_finish(void) {
     uint8_t status_check_command[] = {CMD_HEADER, 0x00, 0x01, INQUIRYSTATUS}; // Status Check
     uint8_t ack_val = 0; // acknowledgement value from DFR0760
 
+    // Source: ChatGPT (I asked how much polling time to wait for the TTS module to finish speaking)
     const int max_poll_trials = 100;          // poll for 0x41 for ~2s (delay = 20 ms)
     const int max_status_check_trials = 250;  // poll for  ~12.5 seconds (delay = 50ms)
 
@@ -124,7 +130,6 @@ void DFR0760_say(const char *text) {
         return;
     }
 
-
     // This part is copied from the ref code cuz the packet stuff is kinda complicated 
     /*
     case START_SYNTHESIS: {
@@ -136,6 +141,8 @@ void DFR0760_say(const char *text) {
     sendCommand(head, data, len);
   } break;
     */
+
+    // Source: ChatGPT (I asked how to send packet to the TTS module)
     uint8_t head[length + 5]; 
     head[0] = CMD_HEADER;
     // Length field is for (command_byte + encoding_byte + text_data)
@@ -167,6 +174,7 @@ void DFR0760_set_volume(int volume) {
     DFR0760_say(voice_setting); // IMPORTANT: DONT DELETE // OR INIT WILL FAIL
 }
 
+// Basically copying from the manufacturer's ref code
 void DFR0760_stop(void) {
     uint8_t stop_cmd[] = { CMD_HEADER, 0x00, 0x01, STOP_SYNTHESIS };
     i2c_write_bytes(DFR0760_ADDR, stop_cmd, sizeof(stop_cmd));

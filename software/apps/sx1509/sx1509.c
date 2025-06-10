@@ -1,5 +1,5 @@
 // SX1509 driver for Microbit_v2
-// Code inspiration: i2c lab
+// Code Reference: i2c lab
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -122,7 +122,8 @@ void sx1509_pin_write(uint8_t i2c_addr,uint8_t pin, bool value){
   }
 }
 
-// Helper function for debugging purposes that scans for I2C device addresses
+// Source: ChatGPT 
+// I2C Scanner Helper function for debugging purposes (didn't used in the end tho)
 void scan_i2c_bus(const nrf_twi_mngr_t* mngr) {
   printf("Scanning I2C bus...\n");
 
