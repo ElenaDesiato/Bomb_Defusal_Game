@@ -15,11 +15,11 @@
 #include "lilybuzzer.h"
 
 // Based on international timing of morse code: https://morsecode.world/international/timing.html
-#define TIME_UNIT_MS 120                              // one time unit in ms   
+#define TIME_UNIT_MS 200                              // one time unit in ms   
 #define DOT_LENGTH (1*TIME_UNIT_MS)
 #define DASH_LENGTH (3*TIME_UNIT_MS)
 #define DOT_DASH_SPACE_LENGTH (1*TIME_UNIT_MS)        // space between dots & dashes of a single character
-#define CHAR_SPACE_LENGTH (3*TIME_UNIT_MS)            // space between characters
+#define CHAR_SPACE_LENGTH (10*TIME_UNIT_MS)            // space between characters
 #define WORD_SPACE_LENGTH (7*TIME_UNIT_MS)            // space between words    
 
 #define MORSE_NOTE_FREQUENCY 700                      // Frequency used in beeps for morse code
@@ -201,6 +201,7 @@ static void play_curr_symbol() {
 */
 void play_morse_message(const char* message, uint32_t length) {
     if (debug) printf("Play morse message is called \n");
+    nrf_delay_ms(500);
     string_to_play = message; 
     string_length = length;
     curr_char_index = 0; 
