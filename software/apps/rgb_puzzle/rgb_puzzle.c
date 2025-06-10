@@ -20,16 +20,17 @@
 #define NUM_OUTER_LEDS 6           
 #define SHOW_COLOR_DURATION_MS 700  
 #define FEEDBACK_DURATION_MS 1000  
-#define BUTTON_DEBOUNCE_DELAY_MS 50 
+#define BUTTON_DEBOUNCE_DELAY_MS 50  // Debounce delay for button
 
-APP_TIMER_DEF(RGB_PUZZLE_HANDLER_TIMER);
-APP_TIMER_DEF(SOL_SEQ_SHOW_TIMER);
-APP_TIMER_DEF(FEEDBACK_SHOW_TIMER);
+APP_TIMER_DEF(RGB_PUZZLE_HANDLER_TIMER); // Main timer as puzzle manager (this keeps calling the puzzle handler)
+APP_TIMER_DEF(SOL_SEQ_SHOW_TIMER); // timer for showing the instruction sequence
+APP_TIMER_DEF(FEEDBACK_SHOW_TIMER); // timer for showing feedback (success or fail)
 
 static bool debug = true;
 
 static uint8_t sx1509_i2c_addr = 0;
 static const rgb_puzzle_pins_t* puzzle_pins = NULL;
+
 static bool puzzle_initialized = false;
 static bool puzzle_active = false;
 static bool puzzle_complete = false;
@@ -48,6 +49,7 @@ static rgb_puzzle_fsm_state_t curr_state = IDLE;
 
 void rgb_puzzle_handler(void* unused);
 
+// helper function to return color name as string for dubug printing
 static const char* get_color_name_str(rgb_puzzle_color_t color) {
     switch(color) {
         case PUZZLE_COLOR_RED: return "RED";
@@ -58,12 +60,14 @@ static const char* get_color_name_str(rgb_puzzle_color_t color) {
     }
 }
 
+// clear outer LEDs of Neopixel jewel
 static void clear_outer_leds() {
     for (int i = 0; i < NUM_OUTER_LEDS; i++) {
         neopixel_clear(NEO_JEWEL, NEOPIXEL_OUTER_LED_START + i);
     }
 }
 
+// generate random instruction sequence
 void gen_sol_seq(void) {
     if (debug) printf("RGB: Generating new instruction sequence for round %d.\n", curr_step + 1);
     if (debug) printf("Generated Sequence: ");
@@ -74,18 +78,17 @@ void gen_sol_seq(void) {
     if (debug) printf("\n");
 }
 
+// Press LED feedback 
 static void set_input_feedback(bool success) {
     color_name_t feedback_color = success ? COLOR_GREEN : COLOR_RED;
     neopixel_set_color(NEO_JEWEL, NEOPIXEL_CENTER_LED, feedback_color);
     app_timer_start(FEEDBACK_SHOW_TIMER, APP_TIMER_TICKS(FEEDBACK_DURATION_MS), NULL); // the clearing work
 }
 
-// Timer Handlers
+// sequence showing timer handler
 static void sol_seq_show_timer_handler(void* unused) {
-    if (display_idx < SOL_LENGTH) {
-        //if (debug) printf("RGB: Showing instruction color %d/%d\n", display_idx + 1, SOL_LENGTH);
-        
-        // color mapping (to the neopixel color table enum. i kinda hate it but we can change it later)
+    if (display_idx < SOL_LENGTH) {        
+        // color mapping to neopixel driver
         color_name_t neo_color;
         switch(curr_sol_seq[display_idx]) {
             case PUZZLE_COLOR_RED: neo_color = COLOR_RED; break;
@@ -95,22 +98,23 @@ static void sol_seq_show_timer_handler(void* unused) {
             default: neo_color = COLOR_BLACK;
         }
 
-        // TODO: if length > 6, need wrap around
         neopixel_set_color(NEO_JEWEL, NEOPIXEL_OUTER_LED_START + display_idx, neo_color);
         display_idx++;
         app_timer_start(SOL_SEQ_SHOW_TIMER, APP_TIMER_TICKS(SHOW_COLOR_DURATION_MS), NULL);
+
     } else {
-        //if (debug) printf("RGB: Sequence showing finished\n");
         clear_outer_leds();
         curr_state = WAIT_INPUT;
         input_idx = 0;
     }
 }
 
+// Feedback timer handler related to clearing the neopixel jewel LED
 static void feedback_timer_handler(void* unused) {
     neopixel_clear(NEO_JEWEL, NEOPIXEL_CENTER_LED);
 }
 
+// display the instruction sequence
 static void show_sol_seq(void) {
     display_idx = 0;
     clear_outer_leds();
@@ -121,7 +125,7 @@ static void show_sol_seq(void) {
     app_timer_start(SOL_SEQ_SHOW_TIMER, APP_TIMER_TICKS(SHOW_COLOR_DURATION_MS), NULL);
 }
 
-
+// rgb puzzle initialization function (only called once)
 void rgb_puzzle_init(uint8_t sx1509_addr, const rgb_puzzle_pins_t* p_pins, bool enable_debug) {
     if (puzzle_initialized) return;
 
@@ -160,6 +164,7 @@ void rgb_puzzle_init(uint8_t sx1509_addr, const rgb_puzzle_pins_t* p_pins, bool 
     if (debug) printf("RGB: Puzzle Initialized.\n");
 }
 
+// Start puzzle (reset state)
 void rgb_puzzle_start() {
     if (puzzle_active) return;
     curr_step = 0;
@@ -171,6 +176,7 @@ void rgb_puzzle_start() {
     if (debug) printf("RGB: Puzzle Start.\n");
 }
 
+// End everything related to the puzzle
 void rgb_puzzle_stop() {
     if (!puzzle_active) return;
 
@@ -186,13 +192,13 @@ void rgb_puzzle_stop() {
     if (puzzle_complete) {
         neopixel_set_color_all(NEO_JEWEL, COLOR_GREEN);
     } else {
-        // FIX: Clear LEDs if stopped while incomplete
         neopixel_clear_all(NEO_JEWEL);
     }
 }
 
+// Continue playing existing puzzle instance
 void rgb_puzzle_continue(void* unused) {
-    if (puzzle_active) return; // flag
+    if (puzzle_active) return; // flag check (return if already active)
     if (puzzle_complete) return;
     if (debug) printf("RGB: puzzle continue called.\n");
     puzzle_active = true;
@@ -200,19 +206,22 @@ void rgb_puzzle_continue(void* unused) {
     app_timer_start(RGB_PUZZLE_HANDLER_TIMER, APP_TIMER_TICKS(50), NULL);
 }
 
+// Returns true iff puzzle has been successfully completed.
 bool rgb_puzzle_is_complete(void) {
     return puzzle_complete;
 }
 
+// Returns true iff puzzle is currently active.
 bool rgb_puzzle_is_active(void) {
     return puzzle_active;
 }
 
+// Process button press event
 static void process_button_press(rgb_puzzle_color_t color_pressed) {
-    if (curr_state != WAIT_INPUT) return;
+    if (curr_state != WAIT_INPUT) return; // wrong state to process input (not likely to happen)
     if (input_idx >= SOL_LENGTH) return;
 
-    color_name_t neo_color; // do the color mapping. using switch is lowkey ugly but idc
+    color_name_t neo_color; // do the color mapping
     switch(color_pressed) {
         case PUZZLE_COLOR_RED: neo_color = COLOR_RED; break;
         case PUZZLE_COLOR_GREEN: neo_color = COLOR_GREEN; break;
@@ -232,10 +241,10 @@ static void process_button_press(rgb_puzzle_color_t color_pressed) {
     }
 }
 
+// Reset the puzzle state
 void rgb_puzzle_handler(void* unused) { 
     if (!puzzle_active) return;
 
-    // FIX: Check for completion at the top
     if (curr_step >= NUM_ROUNDS) {
         if (!puzzle_complete) {
              if (debug) printf("RGB: All rounds complete! Puzzle Success!\n");
@@ -246,8 +255,9 @@ void rgb_puzzle_handler(void* unused) {
         return;
     }
 
+    // FSM
     switch (curr_state) {
-        case IDLE:
+        case IDLE: // default state after initialization & game finished
             // do nothing
             break;
 

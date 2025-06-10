@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "nrf_log.h" // Source: ChatGPT (used in the debug print. see inline comments at line 239)
+#include "nrf_log.h" // Source: ChatGPT (used in the debug print. see inline comments at line ~2)
 #include "app_error.h"
 #include "../neopixel/neopixel.h"
 

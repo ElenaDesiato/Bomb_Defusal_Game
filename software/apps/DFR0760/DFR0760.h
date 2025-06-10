@@ -25,12 +25,23 @@
 #define ACK_ERROR_CHIP                0x45  // 'E' - Error state
 #define ACK_ERROR_BUSY_SYNTHESIS      0x42  // 'B' - Chip busy with another synthesis task
 
+// Initialize DFR0760 module. Only call once at boot.
 bool DFR0760_init(const nrf_twi_mngr_t* twi_manager);
-// Sets volume: 1-9 (1 lowest, 9 highest)
+
+// Sets DFR0760 volume: 1-9 (1 lowest, 9 highest)
 void DFR0760_set_volume(int volume);
+
+// Send speech synthesis command to DFR0760
 void DFR0760_say(const char* text);
+
+// Stop speech synthesis
 void DFR0760_stop(void);
+
+// Put DFR0760 into sleep mode
 void DFR0760_sleep(void);
+
+// Wake up DFR0760 from sleep mode
 void DFR0760_wakeup(void);
+
+// helper function to check if DFR0760 is connected
 bool DFR0760_is_connected(const nrf_twi_mngr_t* twi_manager);
-void DFR0760_wait_for_speech_to_finish(void);
