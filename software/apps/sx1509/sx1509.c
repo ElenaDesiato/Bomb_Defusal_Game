@@ -26,6 +26,9 @@
 
 static const nrf_twi_mngr_t* twi_mngr = NULL;
 
+// I2C helper functions
+// Reference: Lab6 I2C Sensors
+// write i2c register
 static bool write_reg(uint8_t i2c_addr, uint8_t reg, uint8_t val) {
   uint8_t data_to_write[2] = { reg, val };
   nrf_twi_mngr_transfer_t transfer = NRF_TWI_MNGR_WRITE(i2c_addr, data_to_write, 2, 0);
@@ -37,6 +40,7 @@ static bool write_reg(uint8_t i2c_addr, uint8_t reg, uint8_t val) {
   return true; 
 }
 
+// read i2c register
 static uint8_t read_reg(uint8_t i2c_addr, uint8_t reg) {
   uint8_t res = 0;
   nrf_twi_mngr_transfer_t transfers[] = {
@@ -51,6 +55,7 @@ static uint8_t read_reg(uint8_t i2c_addr, uint8_t reg) {
   return res;
 }
 
+// helper function to check if sx1509 is connected
 bool sx1509_is_connected(uint8_t i2c_addr, const nrf_twi_mngr_t* i2c) {
   uint8_t dummy;
   nrf_twi_mngr_transfer_t transfer = NRF_TWI_MNGR_READ(i2c_addr, &dummy, 1, 0);
@@ -62,6 +67,7 @@ bool sx1509_is_connected(uint8_t i2c_addr, const nrf_twi_mngr_t* i2c) {
   return true;
 }
 
+// Initialize sx1509 gpio expander module. Only call once.
 bool sx1509_init(uint8_t i2c_addr, const nrf_twi_mngr_t* twi) {
   twi_mngr = twi;
   write_reg(i2c_addr,REG_RESET, 0x12);
@@ -84,6 +90,7 @@ static void clear_pin_bit(uint8_t i2c_addr, uint8_t reg, uint8_t pin) {
   write_reg(i2c_addr,reg, new_val);
 }
 
+// configure pin as input with pull-up resistor
 void sx1509_pin_config_input_pullup(uint8_t i2c_addr, uint8_t pin) {
 
   uint8_t reg_dir = BANK(pin) ? REG_DIR_B: REG_DIR_A; 
@@ -93,28 +100,33 @@ void sx1509_pin_config_input_pullup(uint8_t i2c_addr, uint8_t pin) {
   set_pin_bit(i2c_addr, reg_pullup, pin); 
 }
 
+// configure pin as output
 void sx1509_pin_config_output(uint8_t i2c_addr, uint8_t pin) {
   uint8_t reg_dir = BANK(pin) ? REG_DIR_B : REG_DIR_A; 
   clear_pin_bit(i2c_addr,reg_dir,pin); 
 }
 
+// read pin value from the sx1509
 bool sx1509_pin_read(uint8_t i2c_addr, uint8_t pin) {
   uint8_t reg_data = BANK(pin) ? REG_DATA_B : REG_DATA_A; 
   uint8_t val = read_reg(i2c_addr, reg_data);
   return (val & (GET_X_PIN(pin))) != 0;
 }
 
+// clear pin value (set to low) on the sx1509
 void sx1509_pin_clear(uint8_t i2c_addr, uint8_t pin) {
   uint8_t reg_data = BANK(pin) ? REG_DATA_B : REG_DATA_A;
   clear_pin_bit(i2c_addr,reg_data,pin); 
 }
 
+// set pin value (set to high) on the sx1509
 void sx1509_pin_set(uint8_t i2c_addr, uint8_t pin){
   uint8_t reg_data = BANK(pin) ? REG_DATA_B : REG_DATA_A;
   set_pin_bit(i2c_addr,reg_data,pin); 
 }
 
-void sx1509_pin_write(uint8_t i2c_addr,uint8_t pin, bool value){
+// write pin value 
+void sx1509_pin_write(uint8_t i2c_addr, uint8_t pin, bool value){
   if (value) {
     sx1509_pin_set(i2c_addr,pin);
   } else {
