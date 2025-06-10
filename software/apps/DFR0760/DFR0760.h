@@ -1,8 +1,6 @@
 // DFR0769.h
 
 #pragma once
-#ifndef DFR0760_H
-#define DFR0760_H
 
 #include "nrf_twi_mngr.h"
 #include <stdbool.h>
@@ -36,5 +34,3 @@ void DFR0760_sleep(void);
 void DFR0760_wakeup(void);
 bool DFR0760_is_connected(const nrf_twi_mngr_t* twi_manager);
 void DFR0760_wait_for_speech_to_finish(void);
-
-#endif

@@ -2,8 +2,10 @@
 // Driver for DFR0760 Text-to-Speech Module
 // Reference code:
 // 1. Lab6 I2C Sensors
-// 2. DFRobot_SpeechSynthesis_V2.cpp from DFRobot
+// 2. DFRobot_SpeechSynthesis_V2.cpp from DFRobot https://github.com/DFRobot/DFRobot_SpeechSynthesis_V2/blob/main/DFRobot_SpeechSynthesis_V2.cpp
 // 3. ChatGPT (See inline comments for details)
+// ========================
+
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,6 +20,7 @@ static const nrf_twi_mngr_t* i2c_manager = NULL;
 
 // I2C helper functioned modified to send multiple bytes
 // Reference: Lab6 I2C Sensors
+// read bytes from i2c device
 static ret_code_t i2c_read_bytes(uint8_t i2c_addr, uint8_t* rx_buf, uint8_t length) {
     if (i2c_manager == NULL) return NRF_ERROR_INVALID_STATE;
     nrf_twi_mngr_transfer_t const read_transfer[] = {
@@ -26,6 +29,7 @@ static ret_code_t i2c_read_bytes(uint8_t i2c_addr, uint8_t* rx_buf, uint8_t leng
     return nrf_twi_mngr_perform(i2c_manager, NULL, read_transfer, 1, NULL);
 }
 
+// write bytes to i2c device
 static ret_code_t i2c_write_bytes(uint8_t i2c_addr, const uint8_t *data, size_t length) {
     if (i2c_manager == NULL) return NRF_ERROR_INVALID_STATE;
     nrf_twi_mngr_transfer_t const write_transfer = NRF_TWI_MNGR_WRITE(i2c_addr, data, length, 0);
@@ -36,15 +40,13 @@ static ret_code_t i2c_write_bytes(uint8_t i2c_addr, const uint8_t *data, size_t 
     return result;
 }
 
-// =======================
 // DFR0760 Interface
 // Reference Code: https://github.com/DFRobot/DFRobot_SpeechSynthesis_V2/blob/main/DFRobot_SpeechSynthesis_V2.cpp
-
 bool DFR0760_init(const nrf_twi_mngr_t* i2c) {
     i2c_manager = i2c;
 
-    // This module's workflow: 0xAA sequence -> status check -> wait for 0x4F
-    // Microbit send a somewhat attention signal to device and check its response before init
+    // 0xAA sequence -> status check -> wait for 0x4F
+    // Microbit send an attention signal to device and check its response before init
     uint8_t sync_byte = 0xAA; // Sync signal
     uint8_t status_check_command[] = {CMD_HEADER, 0x00, 0x01, INQUIRYSTATUS}; // Status Check
     uint8_t ack_val = 0; // acknowledge
@@ -79,9 +81,10 @@ bool DFR0760_init(const nrf_twi_mngr_t* i2c) {
 }
 
 
-// I made the whole thing blocking 
+// block program execution until the DFR0760 text-to-speech module has finished speaking
+// or will ignore or mishandle new speech commands sent while it is still speaking
 void DFR0760_wait_for_speech_to_finish(void) {
-    uint8_t status_check_command[] = {CMD_HEADER, 0x00, 0x01, INQUIRYSTATUS}; // Status Check
+    uint8_t status_check_command[] = {CMD_HEADER, 0x00, 0x01, INQUIRYSTATUS}; // Status Check package
     uint8_t ack_val = 0; // acknowledgement value from DFR0760
 
     // Source: ChatGPT (I asked how much polling time to wait for the TTS module to finish speaking)
@@ -122,6 +125,7 @@ void DFR0760_wait_for_speech_to_finish(void) {
     }
 }
 
+// send a text to the DFR0760 module to start speech synthesis
 void DFR0760_say(const char *text) {
     uint16_t length = strlen(text);
     if (length == 0) return;
@@ -130,7 +134,6 @@ void DFR0760_say(const char *text) {
         return;
     }
 
-    // This part is copied from the ref code cuz the packet stuff is kinda complicated 
     /*
     case START_SYNTHESIS: {
     length = 2 + len;
@@ -159,6 +162,7 @@ void DFR0760_say(const char *text) {
     }
 }
 
+// Set the volume of the DFR0760 module
 void DFR0760_set_volume(int volume) {
     if (volume < 0) volume = 0;
     if (volume > 9) volume = 9;
@@ -175,24 +179,28 @@ void DFR0760_set_volume(int volume) {
 }
 
 // Basically copying from the manufacturer's ref code
+// Stop the module's speech synthesis
 void DFR0760_stop(void) {
     uint8_t stop_cmd[] = { CMD_HEADER, 0x00, 0x01, STOP_SYNTHESIS };
     i2c_write_bytes(DFR0760_ADDR, stop_cmd, sizeof(stop_cmd));
     nrf_delay_ms(50); 
 }
 
+// Put the DFR0760 module to sleep mode
 void DFR0760_sleep(void) {
     uint8_t sleep_cmd[] = { CMD_HEADER, 0x00, 0x01, ENTERSAVEELETRI };
     i2c_write_bytes(DFR0760_ADDR, sleep_cmd, sizeof(sleep_cmd));
     nrf_delay_ms(50);
 }
 
+// Wake up the DFR0760 module from sleep mode
 void DFR0760_wakeup(void) {
     uint8_t wake_cmd[] = { CMD_HEADER, 0x00, 0x01, WAKEUP };
     i2c_write_bytes(DFR0760_ADDR, wake_cmd, sizeof(wake_cmd));
     nrf_delay_ms(100);
 }
 
+// Helper function to check if the DFR0760 module is connected
 bool DFR0760_is_connected(const nrf_twi_mngr_t* i2c) {
     if (i2c == NULL && i2c_manager == NULL) return false;
     const nrf_twi_mngr_t* current_manager = (i2c != NULL) ? i2c : i2c_manager;

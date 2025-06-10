@@ -12,6 +12,7 @@
 
 #define MAX_RECORD_LENGTH 10
 
+// Timer for keypad scanning
 APP_TIMER_DEF(keypad_scanning_timer);
 
 static const uint8_t* row_pins = NULL; 
@@ -40,33 +41,35 @@ void keypad_start_scanning(void) {
 
   record_index = 0;
   is_scanning = true;
+  // start the timer for keypad scanning
   app_timer_start(keypad_scanning_timer, APP_TIMER_TICKS(100), NULL); 
 }
 
+// keypad initialization
 bool keypad_init(uint8_t i2c_addr, const uint8_t* rows, const uint8_t* cols) {
   row_pins = rows; 
   col_pins = cols;
   sx1509_i2c_addr = i2c_addr; 
   is_scanning = false;
+
+  // pins config
   for (int i = 0; i < 4; i++) {
     sx1509_pin_config_output(sx1509_i2c_addr, row_pins[i]);
     sx1509_pin_write(sx1509_i2c_addr, row_pins[i], true); // set high at init
   }
-
-  // Col pins -> Input (pull up)
   for (int i = 0; i < 3; i++) {
-    sx1509_pin_config_input_pullup(sx1509_i2c_addr, col_pins[i]);
+    sx1509_pin_config_input_pullup(sx1509_i2c_addr, col_pins[i]);   // Col pins -> Input (pull up)
   }
 
-  //app_timer_init();
   app_timer_create(&keypad_scanning_timer, APP_TIMER_MODE_REPEATED, keypad_read_input);
   if (debug) printf("KEYPAD: INITIALIZED\n");
   return true;
 }
 
+// keep calling this function to read keypad input
 static void keypad_read_input(void* _unused) {
     char key_current = '\0';
-    //if (debug) printf("KEYPAD: scanning...\n");
+
     // Keyboard Scanning
     for (int r = 0; r < 4; r++) {
       sx1509_pin_write(sx1509_i2c_addr, row_pins[r], false);  // Scanned Row: Set Output as low
@@ -85,8 +88,8 @@ static void keypad_read_input(void* _unused) {
       }
     }
 
-    if (key_current != '\0' && key_current != key_prev) { 
-        key_prev = key_current;
+    if (key_current != '\0' && key_current != key_prev) {  // a new key is pressed
+        key_prev = key_current; // update previous key
           if (record_index < MAX_RECORD_LENGTH) {
             key_record[record_index++] = key_current;
             key_record[record_index] = '\0'; // Keep it null-terminated
@@ -104,14 +107,17 @@ void keypad_clear_input_record(void) {
   record_index = 0;  // reset the index
 }
 
+// reuturn current input
 char* keypad_get_input(void) {
   return key_record;
 }
 
+// returns current input length
 uint8_t keypad_get_input_length(void) {
   return record_index;
 }
 
+// helper function to print current input recorded
 void print_keypad_input(void) {
   printf("Recorded keypad input sequence: ");
   for (uint8_t i = 0; i < record_index; i++) {
@@ -121,6 +127,7 @@ void print_keypad_input(void) {
   printf("\n");
 }
 
+// stop scanning the keypad
 void keypad_stop_scanning(void) {
   if (debug) printf("Stop scanning called \n");
   is_scanning = false;
