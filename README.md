@@ -51,6 +51,8 @@ To build an application, use `make` inside of the application's directory.
 
 `make flash` uploads the application to the board using JTAG.
 
+In this case, run make inside of the "apps" directory.
+
 
 ## Getting print data
 
